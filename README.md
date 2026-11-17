@@ -72,6 +72,8 @@ CLAUDE.md            rules every agent reads — rewrite it for your business
 
 ## Quick start
 
+- **Local AI (optional):** ComfyUI + Qwen-Image-Edit, Hunyuan3D-2 and Blender — see [docs/local-ai.md](docs/local-ai.md).
+
 ```bash
 git clone <this-repo> 3d-printer-open-workbench-bot && cd 3d-printer-open-workbench-bot
 ./install.sh                 # venv, deps, .env, systemd user unit (idempotent)

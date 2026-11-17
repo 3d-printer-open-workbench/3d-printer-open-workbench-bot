@@ -87,6 +87,8 @@ Set `WORKBENCH_CLAUDE_CHROME=0` in `.env` to disable this.
 
 ## 8. Optional: ComfyUI (Qwen-Image-Edit) and Hunyuan3D-2
 
+> Full guide (model links, versions, VRAM/RAM, Blender, troubleshooting): **[docs/local-ai.md](local-ai.md)**
+
 Needs an NVIDIA GPU (12 GB VRAM recommended). Nothing is bundled — you download and accept the licenses.
 
 ```bash

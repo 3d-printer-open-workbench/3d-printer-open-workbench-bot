@@ -69,6 +69,8 @@ CLAUDE.md            her ajanın okuduğu kurallar — kendi işletmeniz için y
 
 ## Hızlı başlangıç
 
+- **Yerel YZ (isteğe bağlı):** ComfyUI + Qwen-Image-Edit, Hunyuan3D-2 ve Blender — bkz. [docs/yerel-yz.md](docs/yerel-yz.md).
+
 ```bash
 git clone <bu-depo> 3d-printer-open-workbench-bot && cd 3d-printer-open-workbench-bot
 ./install.sh                 # venv, bağımlılıklar, .env, systemd kullanıcı birimi (tekrar çalıştırılabilir)

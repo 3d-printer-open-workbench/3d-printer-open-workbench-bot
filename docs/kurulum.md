@@ -86,6 +86,8 @@ yayınlama adımları her zaman onayınız için durur). Kapatmak için `.env` i
 
 ## 8. İsteğe bağlı: ComfyUI (Qwen-Image-Edit) ve Hunyuan3D-2
 
+> Ayrıntılı rehber (model bağlantıları, sürümler, VRAM/RAM, Blender, sorun giderme): **[docs/yerel-yz.md](yerel-yz.md)**
+
 NVIDIA GPU gerekir (12 GB VRAM önerilir). Depoda hiçbiri yoktur — indirir ve lisanslarını kendiniz kabul edersiniz.
 
 ```bash
