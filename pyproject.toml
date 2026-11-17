@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "3d-printer-open-workbench-bot"
+version = "0.1.0"
+description = "Telegram-run assistant for a small 3D-printing business: Claude Code agents for trends, product pipeline, slicing, store and social."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = ["PyYAML>=6.0", "Pillow>=10.0", "numpy>=1.26"]
+
+[project.optional-dependencies]
+geometry = ["trimesh>=4.0", "scipy>=1.11", "shapely>=2.0", "manifold3d>=2.4"]
+cad = ["build123d"]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+include = ["coo*"]
+
+[tool.pytest.ini_options]
+testpaths = ["coo/tests"]
+addopts = "-p no:cacheprovider"

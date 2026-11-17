@@ -1,0 +1,26 @@
+# Template — install.sh replaces @ROOT@ and @PYTHON@ and copies it to ~/.config/systemd/user/workbench-bot.service
+[Unit]
+Description=3D Printer Open Workbench — Telegram bot (COO) and production pipelines
+After=network-online.target graphical-session.target
+Wants=network-online.target
+# Optional sibling services; ordering only, the bot runs without them:
+After=workbench-erp.service workbench-studio.service
+
+[Service]
+Type=simple
+WorkingDirectory=@ROOT@
+EnvironmentFile=-@ROOT@/.env
+Environment="WORKBENCH_ROOT=@ROOT@"
+Environment="PYTHONPATH=@ROOT@"
+Environment="PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=@PYTHON@ -m coo
+Restart=on-failure
+RestartSec=5
+# Keep a runaway AI job (ComfyUI, Blender, Hunyuan3D child processes) from freezing the desktop.
+# Raise or lower to fit your RAM; the kernel OOM killer then stops this unit's processes first.
+MemoryMax=12G
+MemoryHigh=10G
+OOMPolicy=continue
+
+[Install]
+WantedBy=default.target

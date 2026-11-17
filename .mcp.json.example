@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "workbench-erp": {
+      "type": "stdio",
+      "command": "/path/to/3d-printer-open-workbench-erp/.venv/bin/python",
+      "args": ["/path/to/3d-printer-open-workbench-erp/mcp_server.py"],
+      "env": {
+        "WORKBENCH_ERP_DB": "/path/to/3d-printer-open-workbench-erp/data/erp.db",
+        "WORKBENCH_ORCA_PROFILES": "/path/to/3d-printer-open-workbench-bot/config/orca"
+      }
+    },
+    "workbench-studio": {
+      "type": "http",
+      "url": "http://127.0.0.1:7870/mcp"
+    }
+  }
+}

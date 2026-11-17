@@ -1,0 +1,9 @@
+# Core bot (Telegram via stdlib urllib; Claude Code CLI is called as a subprocess)
+PyYAML>=6.0
+Pillow>=10.0
+numpy>=1.26
+# Geometry checks / slicing helpers (quality gate, STL analysis)
+trimesh>=4.0
+scipy>=1.11
+shapely>=2.0
+manifold3d>=2.4

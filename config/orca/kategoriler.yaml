@@ -1,0 +1,84 @@
+# Open Workbench baskı kategorileri — Elegoo Centauri Carbon 0.4 nozul, taban: "0.20mm Standard @Elegoo CC 0.4 nozzle".
+# Her kategori bir Orca proses profiline dönüşür (config/orca/process/<proses>.json).
+# `ayarlar` yalnız coo/orca_dilim.py IZINLI_AYARLAR içindeki anahtarları ve aralıkları kabul eder.
+# Destek burada açılmaz: her üründe katman analizi (havada başlayan parça) varsa ağaç destek otomatik eklenir.
+# Yeni kategori: `python -m coo.orca_dilim kategori-ekle <json>` (YZ ajanı da bunu kullanır; var olanı ezmez).
+
+kategoriler:
+  figur:
+    proses: Workbench Figur 0.16
+    baslik: Figür / karakterli saksı
+    aciklama: Yüz ve el detayı olan organik formlar. İnce katman, dikiş arkada, ütü yok.
+    anahtar_kelimeler: [figur, figür, karakter, heykel, biblo, kedi, teyze, hayvan, ai3d]
+    ayarlar:
+      layer_height: "0.16"
+      wall_loops: "3"
+      sparse_infill_density: "12%"
+      sparse_infill_pattern: gyroid
+      ironing_type: no ironing
+      seam_position: back
+      seam_slope_type: external
+      outer_wall_speed: "120"
+      top_shell_layers: "6"
+      bottom_shell_layers: "4"
+
+  cerceve:
+    proses: Workbench Cerceve 0.20
+    baslik: Çerçeve / düz panel
+    aciklama: Geniş düz yüzeyli fotoğraf çerçevesi, pano. Düz üst yüz ütülü, rijit dolgu, çarpılmaya karşı kalın taban.
+    anahtar_kelimeler: [cerceve, çerçeve, frame, pano, panel, tablo, poster]
+    ayarlar:
+      layer_height: "0.20"
+      wall_loops: "3"
+      sparse_infill_density: "20%"
+      sparse_infill_pattern: grid
+      ironing_type: top
+      seam_position: aligned
+      top_shell_layers: "5"
+      bottom_shell_layers: "4"
+      top_surface_pattern: monotonicline
+
+  harf:
+    proses: Workbench Harf 0.20
+    baslik: Harf / isimlik / tabela
+    aciklama: İnce harf gövdeleri tam çevre çizgisiyle dolsun, keskin köşe ve ince detay korunsun; düz yüz ütülü.
+    anahtar_kelimeler: [harf, isim, isimlik, kaligraf, yazi, yazı, tabela, logo, nameplate, kelime]
+    ayarlar:
+      layer_height: "0.20"
+      wall_loops: "4"
+      sparse_infill_density: "25%"
+      sparse_infill_pattern: grid
+      ironing_type: top
+      seam_position: nearest
+      detect_thin_wall: "1"
+      wall_generator: arachne
+      precise_outer_wall: "1"
+      top_shell_layers: "5"
+
+  dekor:
+    proses: Workbench Dekor 0.20 Utulu
+    baslik: Hafif dekor
+    aciklama: Yük taşımayan dekor objesi; 2 duvar, seyrek dolgu.
+    anahtar_kelimeler: [dekor, vazo, obje, sus, süs]
+    ayarlar: {wall_loops: "2", sparse_infill_density: "10%"}
+
+  standart:
+    proses: Workbench Standart 0.20 Utulu
+    baslik: Standart
+    aciklama: Genel amaçlı varsayılan.
+    anahtar_kelimeler: []
+    ayarlar: {wall_loops: "3", sparse_infill_density: "15%"}
+
+  dayanikli:
+    proses: Workbench Dayanikli 0.20 Utulu
+    baslik: Dayanıklı / fonksiyonel
+    aciklama: Kullanımda yük alan, düşmeye dayanması gereken parça.
+    anahtar_kelimeler: [askı, aski, tutucu, kanca, organizer, düzenleyici, duzenleyici, fonksiyonel]
+    ayarlar: {wall_loops: "4", sparse_infill_density: "25%"}
+
+  hizli:
+    proses: Workbench Hizli 0.24
+    baslik: Hızlı taslak
+    aciklama: Numune/deneme; görünüm ikinci planda.
+    anahtar_kelimeler: [taslak, deneme, prototip]
+    ayarlar: {layer_height: "0.24", wall_loops: "3", sparse_infill_density: "15%", ironing_type: no ironing}

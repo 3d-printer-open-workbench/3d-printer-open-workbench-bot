@@ -1,0 +1,36 @@
+# Renk paleti — Telegram'dan ekran görüntüsü gönderilerek güncellenir (coo/renk_al.py).
+# dogrulandi: true = HEX ekran görüntüsünden piksel ölçümüyle alındı; false = tahmin, doğrulanmalı.
+# Örnek değerler: kendi filamentlerinizle değiştirin. erp_filament_id = ERP'deki filament kaydı (yoksa null).
+renkler:
+- ad: Beyaz
+  hex: '#F2F2EE'
+  marka: Örnek
+  malzeme: Mat PLA
+  erp_filament_id: null
+  stokta: true
+  dogrulandi: false
+  kaynak: örnek
+- ad: Siyah
+  hex: '#161616'
+  marka: Örnek
+  malzeme: Mat PLA
+  erp_filament_id: null
+  stokta: true
+  dogrulandi: false
+  kaynak: örnek
+- ad: Krem
+  hex: '#E8DFD1'
+  marka: Örnek
+  malzeme: Mat PLA
+  erp_filament_id: null
+  stokta: true
+  dogrulandi: false
+  kaynak: örnek
+- ad: Kırmızı
+  hex: '#C0392B'
+  marka: Örnek
+  malzeme: Mat PLA
+  erp_filament_id: null
+  stokta: false
+  dogrulandi: false
+  kaynak: örnek

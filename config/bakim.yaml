@@ -1,0 +1,33 @@
+# Elegoo Centauri Carbon bakım planı — makine çalışma saatine (ERP: machine.total_worked_hours) göre.
+# Aralıklar genel FDM / CoreXY başlangıç değerleridir; Elegoo kılavuzuna ve kendi deneyimine göre düzenle.
+# son_saat: bakımın yapıldığı andaki makine saati (Telegram "🛠️ ... yapıldı" butonu yazar). null = hiç kaydı yok.
+makine_id: 1
+kalemler:
+  tabla_temizlik:
+    is: Tabla (PEI) yüzeyini IPA ile temizle
+    aralik_saat: 15
+    son_saat: null
+  nozul_silecek:
+    is: Nozul silecek ve atık oluğunu temizle
+    aralik_saat: 50
+    son_saat: null
+  fan_filtre:
+    is: Kabin fanı ve karbon filtreyi kontrol et
+    aralik_saat: 200
+    son_saat: null
+  yaglama:
+    is: Eksen rodları / Z vidalarını yağla (gres)
+    aralik_saat: 300
+    son_saat: null
+  kayis:
+    is: Kayış gerginliği ve dişli kasnakları kontrol et
+    aralik_saat: 300
+    son_saat: null
+  ekstruder:
+    is: Ekstrüder dişlisini fırçayla temizle
+    aralik_saat: 500
+    son_saat: null
+  nozul_asinma:
+    is: Nozul aşınmasını kontrol et (0.4 sertleştirilmiş çelik)
+    aralik_saat: 800
+    son_saat: null

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Read",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Agent",
+      "WebSearch",
+      "WebFetch",
+      "mcp__workbench-erp__*",
+      "mcp__workbench-studio__*"
+    ],
+    "deny": [
+      "Edit(veri/00_Onay/**)"
+    ]
+  }
+}
