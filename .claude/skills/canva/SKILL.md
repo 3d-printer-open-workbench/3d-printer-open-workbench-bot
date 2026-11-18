@@ -5,6 +5,12 @@ description: Canva (claude.ai Canva bağlantısı, Canva Free hesap) ile isteğe
 
 # Canva — teknik poster (isteğe bağlı)
 
+> **VARSAYILAN YEREL ŞABLON:** Teknik poster varsayılan olarak Canva'dan bağımsız, yerel ve açık kaynak üretilir:
+> `config/konseptler/teknik-poster-sablon.svg` + `python -m coo.poster_sablon <sku>` (Inkscape; yedek Chrome/Chromium
+> headless; fontlar Inter + Roboto Mono, OFL). Çıktı `gorsel/konsept/teknik-poster-3x4.png` (eskisi `eski/` altına) +
+> `teknik-poster-9x16.png`. Bu beceri yalnız konsept dosyasında `poster_motoru: canva` seçildiyse ya da Patron
+> açıkça Canva isterse kullanılır.
+
 Şablon haritası: `config/konseptler/teknik-poster-canva.yaml` (ana tasarım id, sayfa id, öğe id'leri; örnek:
 `teknik-poster-canva.example.yaml`). Bu dosya yoksa bot Canva yolunu kullanmaz. Hesap **Canva Free** varsayılır:
 marka kiti / autofill yok → **kopyala + yer tutucu değiştir** yöntemi.

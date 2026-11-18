@@ -23,6 +23,10 @@ fizik:
   sarsma: {genlik_m_s2: 1.5, frekans_hz: 3.0, sure_s: 2.0}   # masa yatay titreşimi (x ve y ayrı)
   dokunma: {kuvvet_n: 3.0, sure_s: 1.0}
   stand_donme_siniri_derece: 3.0 # dinamik testlerde standın kendi ekseninden dönmesi bu sınırı aşarsa "devrildi"
+                                 # (dokunma testinde yalnız devrilme yönündeki eğilme — pitch/roll — ölçülür; yaw hariç)
+  pedler:                        # urun.yaml > taban_pedi: {malzeme, adet, cap_mm, kalinlik_mm, mu} varsayılanları
+    silikon: {mu: 0.8, cap_mm: 9, kalinlik_mm: 2, adet: 4}   # yapışkanlı silikon ped (tipik μ 0.8–1.0; ölçülmedi)
+    kaucuk: {mu: 0.7, cap_mm: 10, kalinlik_mm: 2, adet: 4}   # kauçuk ayak (ölçülmedi)
 
 sablonlar:
 
@@ -68,6 +72,7 @@ sablonlar:
       gorus_acisi_derece: {min: 55, max: 75}          # ekran düzleminin yataydan açısı
       kablo_boslugu: {gerekli: true}                  # yalnız dik yönde; fiş zarfı nesneler.yaml > sarj_fisi
       devrilme_acisi_derece: {min: 8}
-      dokunma: {nesne_kayma_mm_max: 3}                # ekranın üst üçte birine ekrana dik 3 N
+      dokunma: {nesne_kayma_mm_max: 3}                # ekranın üst üçte birine ekrana dik 3 N (telefonun standa göre kayması)
+      dokunma_kayma_mm: {max: 2}                      # aynı dokunuşta standın masadaki yatay kayması
       egme: {nesne_kayma_mm_max: 5, zorunlu_aci_derece: 5}   # 10° zorlayıcı test: raporlanır, sonucu etkilemez
       sarsma: {nesne_kayma_mm_max: 8}

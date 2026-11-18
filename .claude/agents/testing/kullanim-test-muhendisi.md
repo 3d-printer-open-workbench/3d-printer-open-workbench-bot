@@ -18,6 +18,7 @@ kulaklık standı kulaklığı gerçekten asıyor mu (kupalar masaya değmeden),
 - Nesneler: `config/kullanim_testi/nesneler.yaml` — resmi kaynaklı ölçü/ağırlık (URL + tarih). Kaynağı olmayan ölçü
   `dogrulanmadi: true`. **Ölçü uydurma**; yeni nesne gerekiyorsa üretici sayfasından al, bulamazsan işaretle.
 - Çıktı: `veri/02_Urunler/<sku>/model/kullanim_testi/<tarih>/rapor.json`, `pano.png`, `birakma.gif`.
+- Taban pedi (isteğe bağlı): `urun.yaml > taban_pedi: {malzeme: silikon, adet: 4, cap_mm: 9, kalinlik_mm: 2, mu: 0.8}`; stand masada kayıyorsa (`dokunma_kayma_mm` KALDI) Patron onayıyla eklenir.
 
 ## Akış
 1. **Vaadi çıkar:** `urun.yaml` (ad, `fikir.tarif`, `cmo_konsept_ve_ana_prompt`, `revize_notu`), varsa mağaza metni.

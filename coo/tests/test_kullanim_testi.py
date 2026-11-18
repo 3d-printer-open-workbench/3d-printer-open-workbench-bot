@@ -9,6 +9,7 @@ import math
 import os
 from pathlib import Path
 
+import numpy as np
 import pytest
 import yaml
 
@@ -237,3 +238,93 @@ def test_cikti_dosyalari_ve_pano(tmp_path: Path) -> None:
 
     assert Image.open(cikti / "pano.png").size[0] > 1000
     assert copy.deepcopy(j)  # JSON'a dönüşebilir
+
+
+# ------------------------------------------------------------------------------------------------ taban pedi
+def test_taban_pedi_tanimi_varsayilanlar_ve_yoklugu() -> None:
+    t = kt.test_tanimi({"ad": "x", "kullanim_testi": {"sablon": "telefon_standi"}})
+    assert "taban_pedi" not in t["fizik"]  # ped yoksa motor eskisi gibi
+    assert t["kurallar"]["dokunma_kayma_mm"]["max"] == 2
+    t = kt.test_tanimi({"ad": "x", "kullanim_testi": {"sablon": "telefon_standi"},
+                        "taban_pedi": {"malzeme": "silikon", "not": "Patron kararı"}})
+    p = t["fizik"]["taban_pedi"]
+    assert p["mu"] == 0.8 and p["adet"] == 4 and p["cap_mm"] == 9 and p["kalinlik_mm"] == 2 and p["not"]
+    t = kt.test_tanimi({"ad": "x", "kullanim_testi": {"sablon": "telefon_standi"},
+                        "taban_pedi": {"malzeme": "kaucuk", "mu": 0.65}})
+    assert t["fizik"]["taban_pedi"]["mu"] == 0.65  # ürün değeri şablonu ezer
+    with pytest.raises(ValueError):
+        kt.test_tanimi({"ad": "x", "kullanim_testi": {"sablon": "telefon_standi"}, "taban_pedi": {"malzeme": "bilinmez"}})
+
+
+def test_egim_yaw_ayrimi() -> None:
+    yaw = kt._rot("z", 30)
+    assert kt._egim_farki(np.eye(3), yaw) == pytest.approx(0.0, abs=1e-6)  # masada dönmek devrilme değildir
+    assert kt._yaw_farki(np.eye(3), yaw) == pytest.approx(30.0, abs=1e-6)
+    assert kt._aci_farki(np.eye(3), yaw) == pytest.approx(30.0, abs=1e-6)
+    assert kt._egim_farki(np.eye(3), kt._rot("x", 7)) == pytest.approx(7.0, abs=1e-6)
+
+
+def test_ornekleyici_adim_atlamaz() -> None:
+    """2 ms'lik güncellemelerde 10 ms aralık: 1 sn'de tam 100 örnek (eski int(t*1000) % 10 yuvarlamayla eksik)."""
+    from types import SimpleNamespace
+
+    sahte = SimpleNamespace(m=SimpleNamespace(opt=SimpleNamespace(timestep=0.0005)))
+    ornek: list[float] = []
+    izle = kt.Sahne.ornekleyici(sahte, 0.01, ornek.append)
+    t, eski = 0.0, 0
+    for _ in range(500):
+        for _ in range(4):  # mj_step(nstep=4): d.time her alt adımda 0.0005 birikir
+            t += 0.0005
+        izle(t)
+        eski += int(t * 1000) % 10 == 0
+    assert len(ornek) == 100
+    assert eski < 90  # eski yöntem kayan nokta yuvarlamasıyla örnek atlıyordu (≈ yarısı)
+
+
+def test_dokunma_kurali_yaw_ile_kalmaz() -> None:
+    tanim = kt.test_tanimi({"ad": "x", "kullanim_testi": {"sablon": "telefon_standi"}})
+    tanim["kurallar"] = {k: tanim["kurallar"][k] for k in ("dokunma", "dokunma_kayma_mm")}
+    d = {"kuvvet_n": 3.0, "en_cok_nesne_kayma_mm": 0.5, "masaya_degdi": False, "en_cok_stand_egim_derece": 0.3,
+         "en_cok_stand_yaw_derece": 25.0, "en_cok_stand_kayma_mm": 0.4}
+    s = {"etiket": "t", "yerlesti": True, "testler": {"dokunma": d}, "olcumler": {}}
+    k = {x["kural"]: x for x in kt.kurallari_degerlendir(tanim, [s])}
+    assert k["dokunma"]["durum"] == "GEÇTİ" and k["dokunma"]["birim"] == "mm"
+    assert k["dokunma_devrilme"]["durum"] == "GEÇTİ" and k["dokunma_devrilme"]["birim"] == "°"
+    assert "yaw 25.0" in k["dokunma_devrilme"]["aciklama"]
+    assert k["dokunma_kayma_mm"]["durum"] == "GEÇTİ"
+    d["en_cok_stand_egim_derece"] = 12.0
+    k = {x["kural"]: x for x in kt.kurallari_degerlendir(tanim, [s])}
+    assert k["dokunma_devrilme"]["durum"] == "KALDI" and k["dokunma"]["durum"] == "GEÇTİ"
+
+
+def _uzun_tabanli_telefon_standi():
+    """Arkaya uzatılmış tabanlı (devrilmeyen) telefon standı: dokunmada yalnız kayma sınanır."""
+    return _birlesim([_telefon_standi(), _kutu([90, 110, 6], [0, 50, 3])])
+
+
+def test_taban_pedi_kaymayi_onler(tmp_path: Path) -> None:
+    ez = {"telefon_standi": {"nesneler": ["iphone_16"], "kilif": [False],
+                             "yerlesim": {"egimler_derece": [65], "adim_mm": 6}}}
+    konfig = _konfig(tmp_path, nesne_suz=_telefonlar, sablon_ezme=ez)
+    taban = {"sku": "x", "ad": "Telefon standı", "kullanim_testi": {"sablon": "telefon_standi"},
+             "dilimleme": {"gercek_numune_gram": 250}}
+    # pedsiz: 250 g stand + 170 g telefon, PLA–masa μ 0.35 → 3 N dokunuşta stand kayar
+    r = _calistir(tmp_path / "pedsiz", _uzun_tabanli_telefon_standi(), dict(taban), konfig)
+    ks = _kural(r, "dokunma_kayma_mm")[0]
+    assert ks["durum"] == "KALDI" and ks["deger"] > 2 and ks["birim"] == "mm"
+    assert _kural(r, "dokunma_devrilme")[0]["durum"] == "GEÇTİ"  # kayarken dönmesi devrilme sayılmaz
+    assert any("silikon ped" in o for o in r["duzeltme_onerisi"])
+    assert r["varsayimlar"]["taban_pedi"].startswith("yok")
+    # pedli: silikon μ 0.8 → kaymaz
+    r = _calistir(tmp_path / "pedli", _uzun_tabanli_telefon_standi(),
+                  {**taban, "taban_pedi": {"malzeme": "silikon", "adet": 4, "cap_mm": 9, "kalinlik_mm": 2, "mu": 0.8}},
+                  konfig)
+    ks = _kural(r, "dokunma_kayma_mm")[0]
+    assert ks["durum"] == "GEÇTİ" and ks["deger"] <= 2
+    assert _kural(r, "dokunma")[0]["durum"] == "GEÇTİ"
+    ped = r["varsayimlar"]["taban_pedi"]
+    assert ped["mu"] == 0.8 and len(ped["konumlar_mm"]) == 4
+    xs = sorted(x for x, _y in ped["konumlar_mm"])
+    assert xs[0] < -30 and xs[-1] > 30  # taban izinin dış köşelerinde
+    # stand ped kalınlığı kadar yükselir: telefonun en alt noktası masadan ≥ 2 mm yukarıda
+    assert r["senaryolar"][0]["olcumler"]["nesne_alt_mm"] >= 2

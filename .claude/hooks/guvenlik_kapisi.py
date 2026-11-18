@@ -228,7 +228,8 @@ def yol_denetle(arac: str, girdi: dict, ajan: bool) -> str | None:
 
 def web_denetle(arac: str, girdi: dict) -> str | None:
     metin = json.dumps(girdi, ensure_ascii=False)
-    if arac == "WebFetch" or arac.endswith("__navigate") or arac.endswith("firecrawl_scrape"):
+    if arac == "WebFetch" or arac.endswith("__navigate") or arac.endswith("firecrawl_scrape") \
+            or arac.startswith("mcp__workbench-web__"):  # yerel Crawl4AI (coo.web_mcp): salt-okur, sızdırma denetimi aynı
         if supheli_sorgu(metin):
             return "URL sorgusunda uzun/kodlanmış veri var (sızdırma şüphesi)."
     return None

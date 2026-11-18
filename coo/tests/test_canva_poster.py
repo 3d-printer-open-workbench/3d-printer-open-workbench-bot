@@ -17,7 +17,8 @@ def test_canva_sablonu_varsa_teknik_poster_canva_ile_uretilir(monkeypatch, tmp_p
     import coo.bilgi_verisi as bv
     monkeypatch.setattr(bv, "bilgiler", lambda sku, urunler=None: {"ad": "Örnek ürün", "satirlar": [("A-01", "YÜKSEKLİK", "11,8 cm")]})
     konsept = {"ad": "teknik-poster", "baslik": "Teknik Poster", "oranlar": ["3:4", "9:16"], "video": True,
-               "bilgi_katmani": "teknik_poster", "video_istemi": "slow push-in", "yol": "x.md", "referanslar": []}
+               "bilgi_katmani": "teknik_poster", "video_istemi": "slow push-in", "yol": "x.md", "referanslar": [],
+               "poster_motoru": "canva"}
     t = kh.konsept_istemi("urun-x", konsept)
     assert "CANVA POSTER" in t and "teknik-poster-canva.yaml" in t
     assert "A-01 YÜKSEKLİK = 11,8 cm" in t and "ÖRNEK ÜRÜN" in t
@@ -52,6 +53,24 @@ def test_canva_sablonu_yoksa_flow_poster_ve_bilgi_bandi(monkeypatch, tmp_path):
     (tmp_path / "u" / "gorsel").mkdir(parents=True)
     monkeypatch.setattr(kh, "URUNLER_KLASORU", tmp_path)
     konsept = {"ad": "teknik-poster", "baslik": "Teknik Poster", "oranlar": ["3:4", "9:16"], "video": True,
-               "bilgi_katmani": "teknik_poster", "video_istemi": "slow push-in", "yol": "x.md", "referanslar": []}
+               "bilgi_katmani": "teknik_poster", "video_istemi": "slow push-in", "yol": "x.md", "referanslar": [],
+               "poster_motoru": "canva"}
     t = kh.konsept_istemi("u", konsept)
     assert "CANVA POSTER" not in t and "-3x4-ham.png" in t and "coo.teknik_poster reels u" in t
+
+
+def test_varsayilan_yerel_sablon_flow_ve_canva_kullanmaz(monkeypatch, tmp_path):
+    sablon = tmp_path / "teknik-poster-canva.yaml"
+    sablon.write_text("ana_tasarim: X\n", encoding="utf-8")  # Canva haritası olsa bile yerel varsayılan kazanır
+    monkeypatch.setattr(kh, "CANVA_SABLON", sablon)
+    (tmp_path / "u" / "gorsel").mkdir(parents=True)
+    monkeypatch.setattr(kh, "URUNLER_KLASORU", tmp_path)
+    konsept = {"ad": "teknik-poster", "baslik": "Teknik Poster", "oranlar": ["3:4", "9:16"], "video": True,
+               "bilgi_katmani": "teknik_poster", "video_istemi": "slow push-in", "yol": "x.md", "referanslar": []}
+    assert kh.yerel_poster_mu(konsept)
+    t = kh.konsept_istemi("u", konsept)
+    assert "POSTER HAZIR" in t and "Canva KULLANMA" in t and "CANVA POSTER" not in t
+    assert "teknik-poster-3x4.png" in t and "teknik-poster-9x16.png" in t and "ek bant EKLEME" in t
+    assert "-3x4-ham.png" not in t and "Görsel modunda EN YÜKSEK" not in t
+    assert not kh.yerel_poster_mu({**konsept, "poster_motoru": "flow"})
+    assert not kh.yerel_poster_mu({"ad": "sade", "bilgi_katmani": ""})

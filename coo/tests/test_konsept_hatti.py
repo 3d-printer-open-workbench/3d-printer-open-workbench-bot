@@ -40,7 +40,7 @@ def test_istem_kurallari(tmp_path: Path) -> None:
     (kok / "gorsel" / "studyo.png").write_bytes(b"x")  # ham Blender render'ı konsepte girmez
     k = next(k for k in konseptler() if k["ad"] == ORNEK)
     istem = konsept_istemi("kedi", k, tmp_path)
-    assert "krem-fon.png" in istem and "EN YÜKSEK KALİTELİ" in istem and "haklar" in istem
+    assert "krem-fon.png" in istem and "POSTER HAZIR" in istem and "haklar" in istem
     assert "Ölçü, fiyat" in istem and "KONSEPT_HAZIR" in istem
     assert konsept_ciktilari("kedi", k["ad"], tmp_path) == {"poster": None, "dikey": None, "reels": None}
     (kok / "gorsel" / "numune-1.jpg").write_bytes(b"x")
@@ -53,7 +53,7 @@ def test_referansli_konsept(tmp_path: Path) -> None:
     (ref / "urun-poster.jpg").write_bytes(b"x")
     (ref / "kimlik-panosu.jpg").write_bytes(b"x")
     (tmp_path / "ornek.md").write_text(
-        "---\nad: ornek\nbaslik: Örnek\nbilgi_katmani: teknik_poster\nreferanslar:\n"
+        "---\nad: ornek\nbaslik: Örnek\nbilgi_katmani: teknik_poster\nposter_motoru: flow\nreferanslar:\n"
         "  - referans/ornek/urun-poster.jpg\n  - referans/ornek/kimlik-panosu.jpg\n---\n"
         "Create a poster for the product in IMAGE 1.\n", encoding="utf-8")
     k = next(k for k in konseptler(tmp_path) if k["ad"] == "ornek")
@@ -65,7 +65,11 @@ def test_referansli_konsept(tmp_path: Path) -> None:
 def test_teknik_poster_bilgi_katmani_istemi() -> None:
     k = next(k for k in konseptler() if k["ad"] == ORNEK)
     assert k["bilgi_katmani"] == "teknik_poster"
+    assert k["poster_motoru"] == "yerel"  # varsayılan: yerel Inkscape SVG şablonu (coo.poster_sablon)
     istem = konsept_istemi("kedi", k)
+    assert "POSTER HAZIR" in istem and "CANVA POSTER" not in istem and "Canva KULLANMA" in istem
+    assert f"{ORNEK}-3x4.png" in istem and f"{ORNEK}-9x16.png" in istem and "ek bant EKLEME" in istem
+    istem = konsept_istemi("kedi", {**k, "poster_motoru": "flow"})  # Flow ham poster + bilgi bandı yolu korunur
     assert "coo.teknik_poster bilgi kedi" in istem and "coo.teknik_poster reels kedi" in istem
     assert "YENİ sekme" in istem and "-3x4-ham.png" in istem and "(3:4):" in istem
 

@@ -1,9 +1,11 @@
 """Konsept kütüphanesi → konsept görsel (3:4 / 9:16) + Veo Reels.
 
-Teknik poster 3:4 görseli iki yoldan biriyle üretilir:
-- İsteğe bağlı Canva: `config/konseptler/teknik-poster-canva.yaml` varsa (örnek: `teknik-poster-canva.example.yaml`)
+Teknik poster 3:4 görseli konsept dosyasındaki `poster_motoru` ile seçilen yoldan üretilir:
+- `yerel` (varsayılan): yerel Inkscape SVG şablonu `config/konseptler/teknik-poster-sablon.svg` →
+  `coo/poster_sablon.py` (Chrome/Flow/Canva gerekmez; yazılar urun.yaml'dan, gerçek fontla).
+- `canva` (isteğe bağlı): `config/konseptler/teknik-poster-canva.yaml` varsa (örnek: `teknik-poster-canva.example.yaml`)
   kendi Canva ana şablonunuz kopyalanıp gerçek veriyle doldurulur (`canva` becerisi; yazılar gerçek fontla).
-- Varsayılan: Flow'da ham poster + `coo/teknik_poster.py` ile deterministik bilgi bandı.
+- `flow`: Flow'da ham poster + `coo/teknik_poster.py` ile deterministik bilgi bandı.
 Diğer konseptler ve Reels videosu Flow'dan.
 
 Patron (2026-11-16): "Şu konseptte görsel ve reels oluştur" butonu. Seçilen ana konsept **Teknik Poster**: ürün
@@ -45,6 +47,7 @@ def konsept_oku(yol: Path) -> dict[str, Any]:
             "aciklama": bilgi.get("aciklama") or "", "oranlar": bilgi.get("oranlar") or ["3:4", "9:16"],
             "video": bool(bilgi.get("video", True)), "video_istemi": bilgi.get("video_istemi") or "",
             "istem": govde, "yol": yol, "bilgi_katmani": bilgi.get("bilgi_katmani") or "",
+            "poster_motoru": str(bilgi.get("poster_motoru") or "yerel").lower(),
             "referanslar": [yol.parent / r for r in (bilgi.get("referanslar") or []) if (yol.parent / r).exists()]}
 
 
@@ -139,6 +142,16 @@ def canva_poster_adimlari(sku: str, foto: Path | None, cikti: Path, urunler_klas
     )
 
 
+def yerel_poster_mu(konsept: dict[str, Any]) -> bool:
+    """Teknik poster yerel şablondan mı (varsayılan) — `poster_motoru: canva|flow` ise Flow/Canva ajan adımı."""
+    return konsept.get("bilgi_katmani") == "teknik_poster" and konsept.get("poster_motoru", "yerel") == "yerel"
+
+
+def yerel_poster_adimlari(hedef: Path, ad: str) -> str:
+    return (f"3) POSTER HAZIR (yerel şablon, gerçek veriden): `{hedef}/{ad}-3x4.png` ve 9:16 başlangıç karesi "
+            f"`{hedef}/{ad}-9x16.png`. Bu dosyalara DOKUNMA; Flow'da görsel ÜRETME, Canva KULLANMA.\n")
+
+
 def konsept_istemi(sku: str, konsept: dict[str, Any], urunler_klasoru: Path | None = None, not_: str = "") -> str:
     kok = (urunler_klasoru or URUNLER_KLASORU) / sku
     foto = kaynak_fotograf(sku, urunler_klasoru)
@@ -148,7 +161,8 @@ def konsept_istemi(sku: str, konsept: dict[str, Any], urunler_klasoru: Path | No
     video = konsept["video"] and "9:16" in oranlar
     refler = konsept.get("referanslar") or []
     bilgi = konsept.get("bilgi_katmani") == "teknik_poster"
-    canva = bilgi and CANVA_SABLON.exists()
+    yerel = bilgi and yerel_poster_mu(konsept)
+    canva = bilgi and not yerel and konsept.get("poster_motoru") == "canva" and CANVA_SABLON.exists()
     py = f"cd {PROGRAMLAR_KLASORU} && {PY_GORSEL} -m coo.teknik_poster"
     ref_satiri = (
         f"Stil referansları (ürün DEĞİL, yalnızca stil/düzen/palet): {', '.join(f'`{r}`' for r in refler)}. "
@@ -179,7 +193,8 @@ def konsept_istemi(sku: str, konsept: dict[str, Any], urunler_klasoru: Path | No
         "yakalayıp DOM'a ekleyecek ve dialog AÇMAYACAK şekilde yamala; '+' → 'Medya yükle'; find ile file-input'u "
         "bul; file_upload ile ürün fotoğrafını yükle. 'Kullanım hakları' onayı çıkarsa DUR → `KONSEPT_HATA haklar "
         "onayı gerekli`.\n"
-        + (canva_poster_adimlari(sku, poster_fotografi(sku, urunler_klasoru), hedef / f"{ad}-3x4.png", urunler_klasoru)
+        + (yerel_poster_adimlari(hedef, ad) if yerel else
+           canva_poster_adimlari(sku, poster_fotografi(sku, urunler_klasoru), hedef / f"{ad}-3x4.png", urunler_klasoru)
            + f"4b) 9:16 başlangıç karesi: `{py} dikey {sku} {hedef}/{ad}-3x4.png --cikti {hedef}/{ad}-9x16.png` "
            "(Flow'da 9:16 görsel ÜRETME).\n"
            if canva else (
@@ -204,8 +219,8 @@ def konsept_istemi(sku: str, konsept: dict[str, Any], urunler_klasoru: Path | No
             f"5) Video (rehber §2–§5): ayar çipi → Video → Kareler → 9:16 → model 'Veo 3.1 - Fast' (yoksa 'Omni 1.2 "
             f"Flash') → x1. 'Başlat' → 'Çerçeve resmi seçin' → 'Medya yükle' ile `{hedef}/{ad}-9x16.png` → 'İsteme ekle'; "
             "'Bitir' boş. İstem: '" + konsept["video_istemi"].replace("'", "’") + "' "
-            + (f"İndir (yeni sekmede, '720p Orijinal') → `{kok}/medya/konsept-{ad}-reels.mp4` (Canva posteri ölçü/"
-               "malzeme bilgisini zaten içeriyor; ek bant EKLEME, Flow'un kendi sesini koru). " if canva
+            + (f"İndir (yeni sekmede, '720p Orijinal') → `{kok}/medya/konsept-{ad}-reels.mp4` (poster ölçü/"
+               "malzeme bilgisini zaten içeriyor; ek bant EKLEME, Flow'un kendi sesini koru). " if canva or yerel
                else f"İndir (yeni sekmede, '720p Orijinal') → `{kok}/medya/{ad}-veo-ham.mp4`, sonra "
                f"`{py} reels {sku} {kok}/medya/{ad}-veo-ham.mp4` (ölçü/malzeme bandı + site) → "
                f"`{kok}/medya/konsept-{ad}-reels.mp4`. " if bilgi else f"İndir → `{kok}/medya/konsept-{ad}-reels.mp4`. ")

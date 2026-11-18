@@ -10,7 +10,8 @@
       "WebSearch",
       "WebFetch",
       "mcp__workbench-erp__*",
-      "mcp__workbench-studio__*"
+      "mcp__workbench-studio__*",
+      "mcp__workbench-web__*"
     ],
     "deny": [
       "Edit(veri/00_Onay/**)"

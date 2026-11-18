@@ -12,6 +12,15 @@
     "workbench-studio": {
       "type": "http",
       "url": "http://127.0.0.1:7870/mcp"
+    },
+    "workbench-web": {
+      "type": "stdio",
+      "command": "/path/to/3d-printer-open-workbench-bot/ortamlar/.venv-crawl/bin/python",
+      "args": ["-m", "coo.web_mcp"],
+      "env": {
+        "PYTHONPATH": "/path/to/3d-printer-open-workbench-bot",
+        "CRAWL4AI_NO_CLOUD_NOTICE": "1"
+      }
     }
   }
 }

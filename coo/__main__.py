@@ -57,7 +57,10 @@ from .b2c_arge import (
     urun_iskelesi_kur,
 )
 from .erp_koprusu import ErpKoprusu
-from .konsept_hatti import kaynak_fotograf, konsept_ciktilari, konsept_istemi, konsept_kaydet, konseptler
+from .web_oku import WEB_OKUMA_SIRASI
+from .konsept_hatti import (kaynak_fotograf, konsept_ciktilari, konsept_istemi, konsept_kaydet, konseptler,
+                            yerel_poster_mu)
+from . import poster_sablon
 from .pazar_hatti import fiyat_coz, fiyat_onerisi, pazar_istemi, pazar_metni, pazar_oku, pazar_ozeti
 from .fikir_hatti import (
     fikir_bilgisi,
@@ -1323,7 +1326,8 @@ def _trend_istemi(konu: str, pid: str) -> str:
         "Amaç: işletmemizin üretebileceği, ŞU AN SATAN B2C 3B baskı ürünlerini bulmak. Üretim hattımız: Flow konsept "
         "görseli → Hunyuan3D (organik formlar: figür, karakterli saksı, dekor objesi, vazo, abajur) → Elegoo Centauri "
         "Carbon (256 mm), tek renk mat PLA. İnce/mekanik/çok parçalı ürünler ve lisanslı karakterler UYGUN DEĞİL.\n"
-        "1) WebSearch + WebFetch ile Türkiye (Trendyol, Hepsiburada, Etsy TR, Instagram mağazaları) ve global "
+        + WEB_OKUMA_SIRASI
+        + "1) WebSearch ile ara, sayfaları yukarıdaki sırayla oku; Türkiye (Trendyol, Hepsiburada, Etsy TR, Instagram mağazaları) ve global "
         "(Etsy, Pinterest, MakerWorld/Printables popüler) kaynaklarda 4-6 aday bul. Satış sinyali olanları seç: "
         "yorum/favori sayısı, 'çok satan' rozeti, Pinterest kaydetme, MakerWorld indirme.\n"
         "2) DOĞRULUK: Yalnızca açtığın sayfadaki fiyatı ve doğrudan ürün URL'sini yaz; grounding/redirect linki, "
@@ -2037,11 +2041,24 @@ async def _md_studyo_onaylandi(tg: TelegramIstemci, chat_id: int, sku: str) -> N
 
 
 async def _md_poster(tg: TelegramIstemci, chat_id: int, sku: str) -> None:
-    """Teknik Poster (Canva) yeni stüdyo karesi ve yeni ölçülerle; video üretilmez (kredi harcamaz)."""
+    """Teknik Poster yeni stüdyo karesi ve yeni ölçülerle; video üretilmez (kredi harcamaz). Varsayılan yerel
+    şablon (Inkscape; Chrome/Flow gerekmez, cikti_kaydet('poster') alt süreçte); `poster_motoru: canva|flow` → ajan."""
     konsept = next((k for k in await asyncio.to_thread(konseptler) if k.get("bilgi_katmani")), None)
     if konsept is None:
         await tg.mesaj_gonder(chat_id, "ℹ️ Bilgi katmanlı (Teknik Poster) konsept bulunamadı; poster adımı atlandı.")
         await _md_ilerle(tg, chat_id, sku, "poster", True)
+        return
+    if yerel_poster_mu(konsept):
+        sonuc = await asyncio.to_thread(poster_sablon.alt_surecle_uret, sku, ad=konsept["ad"])
+        if sonuc.get("basarili"):
+            for anahtar in ("poster", "dikey"):
+                if sonuc.get(anahtar) and Path(sonuc[anahtar]).exists():
+                    yol = Path(sonuc[anahtar])
+                    await tg.foto_gonder(chat_id, yol.read_bytes(), dosya_adi=yol.name,
+                                         aciklama=f"📐 Teknik poster {'3:4' if anahtar == 'poster' else '9:16'} "
+                                                  "— yeni model/ölçülerle (yerel şablon)")
+        await _md_ilerle(tg, chat_id, sku, "poster", bool(sonuc.get("basarili")),
+                         f"Teknik poster yeniden üretilemedi: {str(sonuc.get('hata'))[-400:]}")
         return
     md = await asyncio.to_thread(model_degisim.degisim_oku, sku)
     not_ = ("MODEL DEĞİŞTİ — yeniden üretim: yalnız Canva Teknik Poster (3:4) ve ondan 9:16 dikey kare. Ürün "
@@ -2766,8 +2783,31 @@ async def _hf_reels_baslat(tg: TelegramIstemci, chat_id: int, sku: str | None, k
 async def _konsept_uret(tg: TelegramIstemci, chat_id: int, sku: str, konsept: dict, not_: str = "",
                         zincir_sonrasi: Callable[[bool], Awaitable[None]] | None = None) -> None:
     """Flow (Chrome) ile konsept görsel (3:4 + 9:16) ve Veo Reels; sonuçlar Telegram'a. not_: ✏️ Not ile Güncelle.
-    zincir_sonrasi: 🔄 Model değişti zinciri — iş bitince (yeni 3:4 poster geldi mi) ile çağrılır."""
+    zincir_sonrasi: 🔄 Model değişti zinciri — iş bitince (yeni 3:4 poster geldi mi) ile çağrılır.
+    Teknik poster varsayılan olarak YEREL şablondan (Inkscape, Chrome/Flow gerekmez); Flow yalnız Reels için."""
     baslangic = time.time()
+    yerel = yerel_poster_mu(konsept)
+    if yerel:
+        await tg.mesaj_gonder(chat_id, f"📐 `{sku}` — *{konsept['baslik']}* posteri yerel şablondan basılıyor "
+                                       "(Inkscape, gerçek veriden; kredi harcamaz)…")
+        sonuc = await asyncio.to_thread(poster_sablon.alt_surecle_uret, sku, ad=konsept["ad"])
+        if not sonuc.get("basarili"):
+            await tg.mesaj_gonder(chat_id, f"⚠️ Teknik poster üretilemedi: {str(sonuc.get('hata'))[-500:]}")
+            if zincir_sonrasi:
+                await zincir_sonrasi(False)
+            return
+        for anahtar, etiket in (("poster", "3:4 poster (galeri / Pinterest)"), ("dikey", "9:16 (Reels / Story)")):
+            if sonuc.get(anahtar) and Path(sonuc[anahtar]).exists():
+                yol = Path(sonuc[anahtar])
+                await tg.foto_gonder(chat_id, yol.read_bytes(), dosya_adi=yol.name,
+                                     aciklama=f"🎨 {konsept['baslik']} — {etiket} (yerel şablon)")
+        if not (konsept.get("video") and "9:16" in konsept.get("oranlar", [])):
+            await tg.mesaj_gonder(chat_id, "✅ Teknik poster hazır (yazılar urun.yaml verisinden).",
+                                  butonlar=[[{"text": "📋 Onaya Sun", "callback_data": f"icerik:sun:{sku}"},
+                                             {"text": "📦 Ürün Kartı", "callback_data": f"urunmenu:{sku}"}]])
+            if zincir_sonrasi:
+                await zincir_sonrasi(True)
+            return
     if not ekran_var():
         await tg.mesaj_gonder(chat_id, "⚠️ Chrome ekran oturumu yok; Flow çalıştırılamıyor.")
         if zincir_sonrasi:
@@ -2780,15 +2820,17 @@ async def _konsept_uret(tg: TelegramIstemci, chat_id: int, sku: str, konsept: di
         if zincir_sonrasi:
             await zincir_sonrasi(False)
         return
-    kaynak = ("Canva şablonundan poster + Flow'da Reels" if konsept.get("bilgi_katmani") == "teknik_poster"
+    kaynak = ("poster hazır; Flow'da yalnız Reels" if yerel
+              else "Canva şablonundan poster + Flow'da Reels" if konsept.get("poster_motoru") == "canva"
               else "Flow'da poster + Reels")
     await tg.mesaj_gonder(chat_id, f"🎨 `{sku}` — *{konsept['baslik']}* konsepti üretiliyor ({kaynak}; "
-                                   "3:4 poster + 9:16 + Reels, ~10 dk, video kredi harcar)…")
+                                   + ("Reels, ~8 dk" if yerel else "3:4 poster + 9:16 + Reels, ~10 dk")
+                                   + ", video kredi harcar)…")
 
     async def _sonra(basarili: bool, yanit: str, devam_anahtari: str | None) -> None:
         c = await asyncio.to_thread(konsept_ciktilari, sku, konsept["ad"])
         yeni_poster = bool(c["poster"] and c["poster"].stat().st_mtime >= baslangic)
-        if yeni_poster and konsept.get("bilgi_katmani"):
+        if yeni_poster and konsept.get("bilgi_katmani") and not yerel:  # yerel: --kaydet ile zaten kaydedildi
             await asyncio.to_thread(model_degisim.cikti_kaydet, sku, "poster")
         if not c["poster"] and not c["dikey"]:
             await tg.mesaj_gonder(chat_id, f"⚠️ Konsept görseli gelmedi.\n\n{(yanit or '')[-600:]}",
@@ -2797,7 +2839,7 @@ async def _konsept_uret(tg: TelegramIstemci, chat_id: int, sku: str, konsept: di
                 await zincir_sonrasi(False)
             return
         for anahtar, etiket in (("poster", "3:4 poster (galeri / Pinterest)"), ("dikey", "9:16 (Reels / Story)")):
-            if c[anahtar]:
+            if c[anahtar] and not yerel:  # yerel poster üretimde zaten gönderildi
                 await tg.foto_gonder(chat_id, c[anahtar].read_bytes(), dosya_adi=c[anahtar].name,
                                      aciklama=f"🎨 {konsept['baslik']} — {etiket}")
         if c["reels"]:

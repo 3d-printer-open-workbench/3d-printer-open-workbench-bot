@@ -16,13 +16,13 @@ optional ERP. Every step that spends money, publishes something or touches the p
 
 | Area | What happens | Who does it |
 |---|---|---|
-| Trends & ideas | Live market research (Etsy, marketplaces, Pinterest, Printables/MakerWorld) with source URLs and dates; a visual catalog you pick from | `trend-researcher` (Sonnet) |
+| Trends & ideas | Live market research (Etsy, marketplaces, Pinterest, Printables/MakerWorld) with source URLs and dates; pages read locally with Crawl4AI (`workbench-web` MCP); a visual catalog you pick from | `trend-researcher` (Sonnet) |
 | Product pipeline | Concept → 3D model (CAD / Studio generators / optional AI 3D) → geometry quality gate → usage test → colors → slicing (3MF) | `cad-artist`, `mesh-validator`, `slicer-engineer` |
-| Usage test | Does the product keep its promise? Real-size reference objects (headphones, game controllers, phones) are dropped onto / tilted / shaken on the model in a physics engine (MuJoCo + CoACD + python-fcl); clearances and tip-over angle are measured. On FAIL a measured revision note goes to the CAD agent (max. 3 automatic rounds) | `kullanim-test-muhendisi`, `cad-artist` |
+| Usage test | Does the product keep its promise? Real-size reference objects (headphones, game controllers, phones) are dropped onto / tilted / shaken on the model in a physics engine (MuJoCo + CoACD + python-fcl); clearances and tip-over angle are measured; optional silicone/rubber base pads (`urun.yaml > taban_pedi`) model stand–desk friction, and the touch test checks phone slip, stand tilt and stand slide. On FAIL a measured revision note goes to the CAD agent (max. 3 automatic rounds) | `kullanim-test-muhendisi`, `cad-artist` |
 | Model changed → dependent outputs | When a usage test passes (or is approved) and the new STL is newer than the colors / slicing / ERP recipe / studio images / technical poster / store images, the bot lists the stale outputs (SHA-256 per output in `urun.yaml > model_surumu`, file dates as fallback). *▶️ Update chain* regenerates them in order (approved multi-color scheme kept, same slicing category, ERP `POST /api/products/{id}/gcode-onayla`; studio images need your approval); the live store listing (existing product's images, text only after editor review) and a new Pinterest pin (old pin is kept) are updated only with your approval. Dry run: `python3 -c "from coo import model_degisim as m; print(m.eskiyen_ciktilar('<sku>'))"` (`coo/model_degisim.py`) | `cmo-store-director`, `cad-artist` |
 | Pricing & stock | BOM, cost, price suggestions, purchases, quotes (PDF) via the ERP | `finance-tracker`, `support-responder` |
 | Store | Short, human store copy checked by a senior-editor review (`coo.metin_denetim`), gallery order, upload checklist; browser upload with Claude in Chrome after your OK | `cmo-store-director`, `seo-copywriter` |
-| Social | Poster with a size/material band printed from real data (optionally from your own Canva template), Pinterest Pins, Reels/TikTok scripts, HyperFrames (HTML → MP4) Reels from real product files, AI review of finished Reels, Reels calendar synced to Google Calendar | `pinterest-curator`, `reels-tiktok-strategist`, `visual-storyteller` |
+| Social | Poster with a size/material grid printed from real data (local SVG template rendered with Inkscape; optionally your own Canva template), Pinterest Pins, Reels/TikTok scripts, HyperFrames (HTML → MP4) Reels from real product files, AI review of finished Reels, Reels calendar synced to Google Calendar | `pinterest-curator`, `reels-tiktok-strategist`, `visual-storyteller` |
 | Printer | Read-only status, camera, file upload, optional AI print-failure warning, two-step emergency stop | bot (`coo/yazici.py`, `coo/baski_goz.py`) |
 | Oversight | CEO/CTO/CMO agents (Opus) review Sonnet output before it reaches you | `ceo-orchestrator`, `cto-architect`, `cmo-store-director` |
 | Daily work | `/bekleyen`: every job waiting for your decision in one list (approve / update with a note / regenerate); "✏️ Update with note" on concepts, Reels, colors, pins and store packages; product delete and folder cleanup (`/temizlik`, two-step, to the trash; products on sale cannot be deleted) | bot (`coo/bekleyen_isler.py`, `coo/klasor_temizlik.py`) |
@@ -105,6 +105,7 @@ All settings are environment variables read from `.env` (see [`.env.example`](.e
 |---|---|
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | required; the bot answers only this chat and refuses to start without it |
 | `WORKBENCH_SHOP_NAME`, `WORKBENCH_SHOP_URL`, `WORKBENCH_PINTEREST_URL` | shop identity on posters, PDF quotes, captions |
+| `WORKBENCH_POSTER_BRAND`, `WORKBENCH_POSTER_SITE`, `WORKBENCH_POSTER_SERIES` | optional header/footer of the local poster |
 | `PRINTER_IP` | SDCP v3 printer on the LAN (e.g. Elegoo Centauri Carbon); read-only + two-step stop |
 | `ERP_URL`, `STUDIO_URL` | optional sibling services |
 | `GEMINI_API_KEY` | optional; AI print-failure watch and end-of-print report |
@@ -123,7 +124,7 @@ Business-specific content you should edit: `CLAUDE.md`, `config/marka/marka-rehb
   accounting, and opens Studio pages at `STUDIO_URL` (default `http://127.0.0.1:7870`).
 - **MCP:** agents use the ERP and Studio tools through Claude Code MCP servers named **`workbench-erp`** and
   **`workbench-studio`**. Copy [`.mcp.json.example`](.mcp.json.example) to `.mcp.json` and fix the paths; tool
-  permissions are pre-allowed in `.claude/settings.json` (`mcp__workbench-erp__*`, `mcp__workbench-studio__*`).
+  permissions are pre-allowed in `.claude/settings.json` (`mcp__workbench-erp__*`, `mcp__workbench-studio__*`). The read-only web reader `workbench-web` is described below.
 - Without them the bot still runs; ERP/Studio buttons report that the service is unreachable.
 
 ### Slicer profiles
@@ -133,6 +134,41 @@ derived from OrcaSlicer's vendor presets (AGPL-3.0), so they are **not** include
 `resources/profiles/<Vendor>` and `OrcaFilamentLibrary` folders into `config/orca/kaynak/` (git-ignored); the bot
 then generates flattened profiles under `config/orca/` on first slice. The defaults target an Elegoo Centauri Carbon
 0.4 mm nozzle; for another printer adjust `TABAN_PROSES`/`MAKINE` in `coo/orca_dilim.py`.
+
+### Local poster (Inkscape)
+
+The technical poster (product photo + size/material grid) is rendered locally from an SVG template — no Canva,
+Flow or browser session needed: `config/konseptler/teknik-poster-sablon.svg` → `python -m coo.poster_sablon <sku>`
+→ `gorsel/konsept/teknik-poster-3x4.png` (+ `-9x16.png`; the previous file moves to `eski/`). All product text
+comes from `urun.yaml`; the header/footer use `WORKBENCH_POSTER_BRAND` / `WORKBENCH_POSTER_SITE` /
+`WORKBENCH_POSTER_SERIES` (default: shop name and URL). Set `poster_motoru: canva` or `flow` in the concept file to
+use the other engines.
+
+- Renderer: **Inkscape 1.4+** (`flatpak install --user flathub org.inkscape.Inkscape` or your distro package);
+  fallback: headless Google Chrome / Chromium.
+- Fonts are **not** bundled. Install **Inter** and **Roboto Mono** (both SIL Open Font License 1.1) for your user,
+  e.g. download the families from [Google Fonts](https://fonts.google.com/specimen/Inter) /
+  [Roboto Mono](https://fonts.google.com/specimen/Roboto+Mono) (or [rsms/inter](https://github.com/rsms/inter)
+  releases), copy the `.ttf` files to `~/.local/share/fonts/` and run `fc-cache -f`. Keep the OFL license text
+  with the fonts if you redistribute them. Without them the renderer falls back to a system font.
+
+### Web reading (Crawl4AI)
+
+Agents read web pages with a local, free **Crawl4AI** (Apache-2.0) + headless Chromium MCP server named
+**`workbench-web`** (`web_oku`, `web_html`, `web_baglantilar`; `coo/web_mcp.py`). GET only, obeys robots.txt,
+3 s per-domain spacing, refuses localhost / private-network addresses and `user:pass@` URLs. `ENGEL: robots` →
+the agent falls back to WebFetch, `ENGEL: bot` (Cloudflare/DataDome) → Claude in Chrome. Firecrawl is not needed.
+
+```bash
+python3 -m venv ortamlar/.venv-crawl
+ortamlar/.venv-crawl/bin/pip install -r requirements-crawl.txt
+ortamlar/.venv-crawl/bin/python -m playwright install chromium
+python3 -m coo.web_oku https://example.com                 # markdown
+python3 -m coo.web_oku <url> --bicim links --json          # links, JSON
+```
+
+Add the `workbench-web` entry from [`.mcp.json.example`](.mcp.json.example) to `.mcp.json` (permission
+`mcp__workbench-web__*` is pre-allowed). `./saglik.sh` checks the environment.
 
 ## Safety rules (built in)
 
@@ -165,6 +201,8 @@ licenses of everything else yourself:
   before downloading; the pipeline works without it (CAD/Studio routes).
 - **OrcaSlicer** — AGPL-3.0. The flattened profile JSON files in `config/orca/` are derived from OrcaSlicer's
   bundled vendor profiles; vendor resources themselves are not redistributed.
+- **Inkscape** (GPL-2.0+) and the **Inter** / **Roboto Mono** fonts (SIL OFL 1.1) for the local poster;
+  **Crawl4AI** + **Playwright** (Apache-2.0) and Chromium for web reading — installed separately.
 - **Blender** (GPL), **FFmpeg** (LGPL/GPL), **Claude Code** (Anthropic terms), **Google Gemini / Flow** (Google
   terms), **Telegram Bot API** (Telegram terms).
 - Python packages listed in `requirements.txt` under their own licenses.

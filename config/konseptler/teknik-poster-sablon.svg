@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Teknik Poster — yerel ürün posteri şablonu (1080x1440, 3:4).
+     Değişken öğeler sabit id taşır; coo/poster_sablon.py doldurur ({MARKA}, {SERI}, {SITE} ve ürün alanları).
+     Fontlar: Inter + Roboto Mono (SIL OFL 1.1) — depoya dahil değildir, kurulumu için README → "Local poster". -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1080" height="1440" viewBox="0 0 1080 1440">
+  <rect id="kagit" x="0" y="0" width="1080" height="1440" fill="#F4F1EA"/>
+  <!-- başlık bandı -->
+  <text id="marka" x="60" y="76.7" font-family="Inter" style="font-variation-settings:'opsz' 14, 'wght' 700" font-size="26" font-weight="700" letter-spacing="3.12" fill="#222224">{MARKA}</text>
+  <text id="seri" x="1020" y="75.0" font-family="Inter" style="font-variation-settings:'opsz' 14, 'wght' 400" font-size="20" font-weight="400" letter-spacing="1.6" text-anchor="end" fill="#222224">{SERI}</text>
+  <line x1="60" y1="100" x2="1020" y2="100" stroke="#222224" stroke-width="2"/>
+  <!-- ürün fotoğrafı (kare kırpılmış; slice ile kutuyu doldurur) -->
+  <rect id="urun_foto_zemin" x="220" y="124" width="640" height="640" fill="#E4DED2"/>
+  <image id="urun_foto" x="220" y="124" width="640" height="640" preserveAspectRatio="xMidYMid slice" xlink:href="" href=""/>
+  <line x1="60" y1="790" x2="1020" y2="790" stroke="#222224" stroke-width="2"/>
+  <text id="urun_satiri" x="60" y="827.0" font-family="Roboto Mono" font-size="20" font-weight="400" style="font-variation-settings:'wght' 400" letter-spacing="1.2" fill="#78766F" xml:space="preserve">{URUN_ADI}  ·  NO. 01</text>
+  <!-- bilgi ızgarası: 2 sütun x 3 satır -->
+  <g id="h1">
+    <line id="h1_cizgi" x1="60" y1="870" x2="286" y2="870" stroke="#C8C4BC" stroke-width="1"/>
+    <circle id="h1_nokta" cx="67" cy="895" r="7" fill="#BE5C3A"/>
+    <text id="h1_etiket" x="84" y="898.1" font-family="Roboto Mono" font-size="17" font-weight="400" style="font-variation-settings:'wght' 400" fill="#78766F" xml:space="preserve">X-01  ETİKET</text>
+    <text id="h1_deger" x="60" y="952.1" font-family="Inter" style="font-variation-settings:'opsz' 14, 'wght' 400" font-size="38" font-weight="400" fill="#222224">Değer</text>
+  </g>
+  <g id="h2">
+    <line id="h2_cizgi" x1="310" y1="870" x2="536" y2="870" stroke="#C8C4BC" stroke-width="1"/>
+    <circle id="h2_nokta" cx="317" cy="895" r="7" fill="#BE5C3A"/>
+    <text id="h2_etiket" x="334" y="898.1" font-family="Roboto Mono" font-size="17" font-weight="400" style="font-variation-settings:'wght' 400" fill="#78766F" xml:space="preserve">X-02  ETİKET</text>
+    <text id="h2_deger" x="310" y="952.1" font-family="Inter" style="font-variation-settings:'opsz' 14, 'wght' 400" font-size="38" font-weight="400" fill="#222224">Değer</text>
+  </g>
+  <g id="h3">
+    <line id="h3_cizgi" x1="60" y1="1020" x2="286" y2="1020" stroke="#C8C4BC" stroke-width="1"/>
+    <circle id="h3_nokta" cx="67" cy="1045" r="7" fill="#BE5C3A"/>
+    <text id="h3_etiket" x="84" y="1048.2" font-family="Roboto Mono" font-size="17" font-weight="400" style="font-variation-settings:'wght' 400" fill="#78766F" xml:space="preserve">X-03  ETİKET</text>
+    <text id="h3_deger" x="60" y="1102.1" font-family="Inter" style="font-variation-settings:'opsz' 14, 'wght' 400" font-size="38" font-weight="400" fill="#222224">Değer</text>
+  </g>
+  <g id="h4">
+    <line id="h4_cizgi" x1="310" y1="1020" x2="536" y2="1020" stroke="#C8C4BC" stroke-width="1"/>
+    <circle id="h4_nokta" cx="317" cy="1045" r="7" fill="#3E807C"/>
+    <text id="h4_etiket" x="334" y="1048.2" font-family="Roboto Mono" font-size="17" font-weight="400" style="font-variation-settings:'wght' 400" fill="#78766F" xml:space="preserve">X-04  ETİKET</text>
+    <text id="h4_deger" x="310" y="1102.1" font-family="Inter" style="font-variation-settings:'opsz' 14, 'wght' 400" font-size="38" font-weight="400" fill="#222224">Değer</text>
+  </g>
+  <g id="h5">
+    <line id="h5_cizgi" x1="60" y1="1170" x2="286" y2="1170" stroke="#C8C4BC" stroke-width="1"/>
+    <circle id="h5_nokta" cx="67" cy="1195" r="7" fill="#3E807C"/>
+    <text id="h5_etiket" x="84" y="1198.2" font-family="Roboto Mono" font-size="17" font-weight="400" style="font-variation-settings:'wght' 400" fill="#78766F" xml:space="preserve">X-05  ETİKET</text>
+    <text id="h5_deger" x="60" y="1252.1" font-family="Inter" style="font-variation-settings:'opsz' 14, 'wght' 400" font-size="38" font-weight="400" fill="#222224">Değer</text>
+  </g>
+  <g id="h6">
+    <line id="h6_cizgi" x1="310" y1="1170" x2="536" y2="1170" stroke="#C8C4BC" stroke-width="1"/>
+    <circle id="h6_nokta" cx="317" cy="1195" r="7" fill="#3E807C"/>
+    <text id="h6_etiket" x="334" y="1198.2" font-family="Roboto Mono" font-size="17" font-weight="400" style="font-variation-settings:'wght' 400" fill="#78766F" xml:space="preserve">X-06  ETİKET</text>
+    <text id="h6_deger" x="310" y="1252.1" font-family="Inter" style="font-variation-settings:'opsz' 14, 'wght' 400" font-size="38" font-weight="400" fill="#222224">Değer</text>
+  </g>
+  <!-- yörünge diyagramı (sabit) -->
+  <g id="yorunge">
+    <circle cx="800" cy="1080" r="190" fill="#F4F1EA" stroke="#222224" stroke-width="2"/>
+    <circle cx="800" cy="1080" r="135" fill="#F4F1EA" stroke="#222224" stroke-width="1"/>
+    <circle cx="800" cy="1080" r="80" fill="#F4F1EA" stroke="#222224" stroke-width="1"/>
+    <circle cx="800" cy="1080" r="30" fill="#F4F1EA" stroke="#222224" stroke-width="1"/>
+    <line x1="585" y1="1080" x2="1015" y2="1080" stroke="#78766F" stroke-width="1"/>
+    <line x1="800" y1="865" x2="800" y2="1295" stroke="#78766F" stroke-width="1"/>
+    <line x1="630" y1="1240" x2="965" y2="910" stroke="#78766F" stroke-width="1"/>
+    <circle cx="800" cy="890" r="9" fill="#222224"/>
+    <circle cx="990" cy="1080" r="9" fill="#222224"/>
+    <circle cx="705" cy="1175" r="9" fill="#BE5C3A"/>
+    <circle cx="801" cy="945" r="9" fill="#BE5C3A"/>
+    <circle cx="896" cy="984" r="9" fill="#3E807C"/>
+  </g>
+  <g id="nokta_izgarasi" fill="#78766F">
+    <ellipse cx="942" cy="909" rx="2" ry="4"/>
+    <ellipse cx="958" cy="909" rx="2" ry="4"/>
+    <ellipse cx="974" cy="909" rx="2" ry="4"/>
+    <ellipse cx="990" cy="909" rx="2" ry="4"/>
+    <ellipse cx="1006" cy="909" rx="2" ry="4"/>
+    <ellipse cx="942" cy="925" rx="2" ry="4"/>
+    <ellipse cx="958" cy="925" rx="2" ry="4"/>
+    <ellipse cx="974" cy="925" rx="2" ry="4"/>
+    <ellipse cx="990" cy="925" rx="2" ry="4"/>
+    <ellipse cx="1006" cy="925" rx="2" ry="4"/>
+    <ellipse cx="942" cy="941" rx="2" ry="4"/>
+    <ellipse cx="958" cy="941" rx="2" ry="4"/>
+    <ellipse cx="974" cy="941" rx="2" ry="4"/>
+    <ellipse cx="990" cy="941" rx="2" ry="4"/>
+    <ellipse cx="1006" cy="941" rx="2" ry="4"/>
+    <ellipse cx="942" cy="957" rx="2" ry="4"/>
+    <ellipse cx="958" cy="957" rx="2" ry="4"/>
+    <ellipse cx="974" cy="957" rx="2" ry="4"/>
+    <ellipse cx="990" cy="957" rx="2" ry="4"/>
+    <ellipse cx="1006" cy="957" rx="2" ry="4"/>
+  </g>
+  <!-- alt bant -->
+  <line x1="60" y1="1340" x2="1020" y2="1340" stroke="#222224" stroke-width="2"/>
+  <text id="site" x="60" y="1386.7" font-family="Roboto Mono" font-size="26" font-weight="400" style="font-variation-settings:'wght' 400" fill="#222224">{SITE}</text>
+  <text id="malzeme_kodu" x="1020" y="1384.9" font-family="Roboto Mono" font-size="22" font-weight="400" style="font-variation-settings:'wght' 400" text-anchor="end" fill="#78766F">PLA / 3D</text>
+</svg>

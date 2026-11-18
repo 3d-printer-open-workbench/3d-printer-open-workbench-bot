@@ -13,13 +13,13 @@ ERP'de muhasebeyi tutar. Para harcayan, bir şey yayınlayan veya yazıcıya dok
 
 | Alan | Ne olur | Kim yapar |
 |---|---|---|
-| Trend ve fikir | Canlı pazar araştırması (Etsy, pazaryerleri, Pinterest, Printables/MakerWorld), kaynak URL ve tarihli; seçim yaptığınız görsel katalog | `trend-researcher` (Sonnet) |
+| Trend ve fikir | Canlı pazar araştırması (Etsy, pazaryerleri, Pinterest, Printables/MakerWorld), kaynak URL ve tarihli; sayfalar yerel Crawl4AI ile okunur (`workbench-web` MCP); seçim yaptığınız görsel katalog | `trend-researcher` (Sonnet) |
 | Ürün hattı | Konsept → 3B model (CAD / Studio üreteçleri / isteğe bağlı YZ 3B) → geometri kalite kapısı → kullanım testi → renk → dilimleme (3MF) | `cad-artist`, `mesh-validator`, `slicer-engineer` |
-| Kullanım testi | Ürün vaadini tutuyor mu? Gerçek ölçülü referans nesneler (kulaklık, oyun kolu, telefon) fizik motorunda (MuJoCo + CoACD + python-fcl) modele bırakılır, masa eğilir, sarsılır; boşluklar ve devrilme açısı ölçülür. KALDI ise CAD ajanına ölçülü revize notu gider (en fazla 3 otomatik tur) | `kullanim-test-muhendisi`, `cad-artist` |
+| Kullanım testi | Ürün vaadini tutuyor mu? Gerçek ölçülü referans nesneler (kulaklık, oyun kolu, telefon) fizik motorunda (MuJoCo + CoACD + python-fcl) modele bırakılır, masa eğilir, sarsılır; boşluklar ve devrilme açısı ölçülür; isteğe bağlı silikon/kauçuk taban pedi (`urun.yaml > taban_pedi`) stand–masa sürtünmesini modeller, dokunma testi telefon kaymasını, stand eğilmesini ve stand kaymasını ölçer. KALDI ise CAD ajanına ölçülü revize notu gider (en fazla 3 otomatik tur) | `kullanim-test-muhendisi`, `cad-artist` |
 | Model değişti → bağımlı çıktılar | Kullanım testi GEÇTİ/onaylandığında yeni STL renk / dilimleme / ERP reçetesi / stüdyo görselleri / teknik poster / mağaza görsellerinden yeniyse bot eskiyenleri listeler (`urun.yaml > model_surumu`'nda çıktı başına SHA-256; kayıt yoksa dosya tarihi). *▶️ Zinciri Güncelle* sırayla yeniden üretir (onaylı çok renk şeması korunur, aynı dilimleme kategorisi, ERP `POST /api/products/{id}/gcode-onayla`; stüdyo karelerini sen onaylarsın); yayındaki mağaza ürünü (mevcut ürünün görselleri, metin yalnız editör review'undan sonra) ve yeni Pinterest pini (eski pin silinmez) yalnız senin onayınla güncellenir. Kuru tarama: `python3 -c "from coo import model_degisim as m; print(m.eskiyen_ciktilar('<sku>'))"` (`coo/model_degisim.py`) | `cmo-store-director`, `cad-artist` |
 | Fiyat ve stok | ERP üzerinden BOM, maliyet, fiyat önerisi, alım kaydı, teklif (PDF) | `finance-tracker`, `support-responder` |
 | Mağaza | Kıdemli editör review'undan (`coo.metin_denetim`) geçen kısa, insan sesli mağaza metni, galeri sırası, yükleme listesi; onayınızdan sonra Claude in Chrome ile yükleme | `cmo-store-director`, `seo-copywriter` |
-| Sosyal medya | Ölçü/malzeme bandı gerçek veriden basılan poster (isteğe bağlı kendi Canva şablonunuzdan), Pinterest Pin'i, Reels/TikTok senaryosu, gerçek ürün dosyalarından HyperFrames (HTML → MP4) Reels, biten Reels'in YZ denetimi, Google Takvim'e eşitlenen Reels takvimi | `pinterest-curator`, `reels-tiktok-strategist`, `visual-storyteller` |
+| Sosyal medya | Ölçü/malzeme ızgarası gerçek veriden basılan poster (Inkscape ile yerel SVG şablonu; isteğe bağlı kendi Canva şablonunuz), Pinterest Pin'i, Reels/TikTok senaryosu, gerçek ürün dosyalarından HyperFrames (HTML → MP4) Reels, biten Reels'in YZ denetimi, Google Takvim'e eşitlenen Reels takvimi | `pinterest-curator`, `reels-tiktok-strategist`, `visual-storyteller` |
 | Yazıcı | Salt okunur durum, kamera, dosya yükleme, isteğe bağlı YZ baskı hatası uyarısı, iki aşamalı acil durdurma | bot (`coo/yazici.py`, `coo/baski_goz.py`) |
 | Denetim | CEO/CTO/CMO ajanları (Opus), Sonnet çıktısını size ulaşmadan önce denetler | `ceo-orchestrator`, `cto-architect`, `cmo-store-director` |
 | Günlük iş | `/bekleyen`: kararınızı bekleyen her iş tek listede (onayla / not ile güncelle / yeniden üret); konsept, Reels, renk, pin ve mağaza paketinde "✏️ Not ile Güncelle"; ürün silme ve klasör temizliği (`/temizlik`, iki aşamalı, çöp kutusuna; satıştaki ürün silinemez) | bot (`coo/bekleyen_isler.py`, `coo/klasor_temizlik.py`) |
@@ -102,6 +102,7 @@ Tüm ayarlar `.env` dosyasından okunan ortam değişkenleridir ([`.env.example`
 |---|---|
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | zorunlu; bot yalnız bu sohbete yanıt verir, kimlik yoksa başlamaz |
 | `WORKBENCH_SHOP_NAME`, `WORKBENCH_SHOP_URL`, `WORKBENCH_PINTEREST_URL` | poster, PDF teklif ve paylaşım metinlerindeki mağaza kimliği |
+| `WORKBENCH_POSTER_BRAND`, `WORKBENCH_POSTER_SITE`, `WORKBENCH_POSTER_SERIES` | isteğe bağlı; yerel posterin üst/alt satırları |
 | `PRINTER_IP` | yerel ağdaki SDCP v3 yazıcı (ör. Elegoo Centauri Carbon); salt okunur + iki aşamalı durdurma |
 | `ERP_URL`, `STUDIO_URL` | isteğe bağlı kardeş servisler |
 | `GEMINI_API_KEY` | isteğe bağlı; YZ baskı gözcüsü ve baskı sonu raporu |
@@ -120,7 +121,7 @@ Kendi işletmenize göre düzenleyeceğiniz içerik: `CLAUDE.md`, `config/marka/
   üzerinden çağırır; Studio sayfalarını `STUDIO_URL` (vars. `http://127.0.0.1:7870`) ile açar.
 - **MCP:** ajanlar ERP ve Studio araçlarını **`workbench-erp`** ve **`workbench-studio`** adlı Claude Code MCP
   sunucularıyla kullanır. [`.mcp.json.example`](.mcp.json.example) dosyasını `.mcp.json` olarak kopyalayıp yolları
-  düzeltin; araç izinleri `.claude/settings.json` içinde hazırdır.
+  düzeltin; araç izinleri `.claude/settings.json` içinde hazırdır. Salt-okur web okuyucu `workbench-web` aşağıda.
 - Bunlar olmadan da bot çalışır; ERP/Studio düğmeleri servise ulaşılamadığını bildirir.
 
 ### Dilimleme profilleri
@@ -131,6 +132,41 @@ OrcaSlicer'ın üretici ön ayarlarından (AGPL-3.0) türediği için depoda **y
 kopyalayın; bot ilk dilimlemede düzleştirilmiş profilleri `config/orca/` altına kendisi üretir. Varsayılanlar
 Elegoo Centauri Carbon 0.4 mm nozul içindir; başka yazıcı için `coo/orca_dilim.py` içindeki
 `TABAN_PROSES`/`MAKINE` değerlerini uyarlayın.
+
+### Yerel poster (Inkscape)
+
+Teknik poster (ürün fotoğrafı + ölçü/malzeme ızgarası) bir SVG şablonundan yerelde basılır — Canva, Flow veya
+tarayıcı oturumu gerekmez: `config/konseptler/teknik-poster-sablon.svg` → `python -m coo.poster_sablon <sku>` →
+`gorsel/konsept/teknik-poster-3x4.png` (+ `-9x16.png`; önceki dosya `eski/` altına taşınır). Ürün yazılarının hepsi
+`urun.yaml`'dan gelir; üst/alt satırlar `WORKBENCH_POSTER_BRAND` / `WORKBENCH_POSTER_SITE` /
+`WORKBENCH_POSTER_SERIES` ile ayarlanır (varsayılan: mağaza adı ve adresi). Diğer yollar için konsept dosyasında
+`poster_motoru: canva` veya `flow` seçin.
+
+- Render: **Inkscape 1.4+** (`flatpak install --user flathub org.inkscape.Inkscape` ya da dağıtım paketi); yedek:
+  başsız Google Chrome / Chromium.
+- Fontlar depoda **yoktur**. **Inter** ve **Roboto Mono** (ikisi de SIL Open Font License 1.1) fontlarını
+  kullanıcınıza kurun: ör. [Google Fonts](https://fonts.google.com/specimen/Inter) /
+  [Roboto Mono](https://fonts.google.com/specimen/Roboto+Mono) (veya [rsms/inter](https://github.com/rsms/inter)
+  sürümleri) üzerinden indirip `.ttf` dosyalarını `~/.local/share/fonts/` altına kopyalayın ve `fc-cache -f`
+  çalıştırın. Fontları yeniden dağıtırsanız OFL lisans metnini yanlarında tutun. Kurulu değilse sistem fontu kullanılır.
+
+### Web okuma (Crawl4AI)
+
+Ajanlar web sayfalarını yerel ve ücretsiz **Crawl4AI** (Apache-2.0) + başsız Chromium ile çalışan **`workbench-web`**
+MCP sunucusundan okur (`web_oku`, `web_html`, `web_baglantilar`; `coo/web_mcp.py`). Yalnız GET, robots.txt'ye uyar,
+alan adı başına 3 sn aralık, localhost / özel ağ adreslerini ve `kullanıcı:parola@` URL'lerini reddeder.
+`ENGEL: robots` → ajan WebFetch'e, `ENGEL: bot` (Cloudflare/DataDome) → Claude in Chrome'a geçer. Firecrawl gerekmez.
+
+```bash
+python3 -m venv ortamlar/.venv-crawl
+ortamlar/.venv-crawl/bin/pip install -r requirements-crawl.txt
+ortamlar/.venv-crawl/bin/python -m playwright install chromium
+python3 -m coo.web_oku https://example.com                 # markdown
+python3 -m coo.web_oku <url> --bicim links --json          # bağlantılar, JSON
+```
+
+[`.mcp.json.example`](.mcp.json.example) içindeki `workbench-web` kaydını `.mcp.json`'a ekleyin (`mcp__workbench-web__*`
+izni hazırdır). `./saglik.sh` ortamı denetler.
 
 ## Güvenlik kuralları (yerleşik)
 
@@ -163,6 +199,8 @@ lisansını kendiniz kabul edersiniz:
   olup olmadığını kontrol edin; hat onsuz da çalışır (CAD/Studio rotaları).
 - **OrcaSlicer** — AGPL-3.0. `config/orca/` içindeki düzleştirilmiş profil JSON'ları OrcaSlicer'ın üretici
   profillerinden türetilmiştir; üretici kaynak dosyaları dağıtılmaz.
+- Yerel poster için **Inkscape** (GPL-2.0+) ve **Inter** / **Roboto Mono** fontları (SIL OFL 1.1); web okuma için
+  **Crawl4AI** + **Playwright** (Apache-2.0) ve Chromium — ayrı kurulur.
 - **Blender** (GPL), **FFmpeg** (LGPL/GPL), **Claude Code** (Anthropic koşulları), **Google Gemini / Flow** (Google
   koşulları), **Telegram Bot API** (Telegram koşulları).
 - `requirements.txt` içindeki Python paketleri kendi lisanslarıyla.

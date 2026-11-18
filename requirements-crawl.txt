@@ -1,0 +1,11 @@
+# Local web reading (python -m coo.web_oku / MCP server coo.web_mcp) — Crawl4AI instead of a paid scraping API.
+# Install into ortamlar/.venv-crawl (no root needed):
+#   python3 -m venv ortamlar/.venv-crawl
+#   ortamlar/.venv-crawl/bin/pip install -r requirements-crawl.txt
+#   ortamlar/.venv-crawl/bin/python -m playwright install chromium     # browser into ~/.cache/ms-playwright
+#   ortamlar/.venv-crawl/bin/crawl4ai-doctor                           # optional self-check
+# Licenses: crawl4ai Apache-2.0 · playwright Apache-2.0 · mcp MIT
+PyYAML>=6.0
+crawl4ai==0.9.5
+playwright==1.65.2
+mcp==2.3.0

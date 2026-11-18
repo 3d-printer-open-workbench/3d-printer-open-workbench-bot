@@ -5,6 +5,7 @@ aciklama: Nötr örnek konsept — üstte gerçek ürün fotoğrafı, altta sade
 oranlar: ["3:4", "9:16"]
 video: true
 bilgi_katmani: teknik_poster
+poster_motoru: yerel   # yerel = Inkscape SVG şablonu (coo/poster_sablon.py, varsayılan) | canva | flow
 referanslar: []
 video_istemi: >-
   Locked-off vertical shot of this printed poster on a plain light wall in soft daylight. The product photograph in

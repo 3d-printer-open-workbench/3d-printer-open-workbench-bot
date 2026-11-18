@@ -47,6 +47,9 @@ New team / tool / process decisions are made jointly by CEO + CTO + CMO.
 
 The bot passes the model explicitly on every call (`coo/__main__.py → AJAN_MODELLERI`); it can be overridden per task.
 <Optional: Gemini API only for the print watch and end-of-print report; Google Flow for concept images/videos.>
+Web pages are read first with the local `workbench-web` MCP (`web_oku`, Crawl4AI) → WebFetch if blocked by
+robots.txt → Claude in Chrome on bot walls. The technical poster is rendered from the local SVG template
+(`python -m coo.poster_sablon <sku>`); Canva/Flow poster engines are optional (`poster_motoru` in the concept file).
 
 ---
 

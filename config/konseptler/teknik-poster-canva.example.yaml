@@ -1,6 +1,6 @@
 # OPTIONAL — technical poster from your own Canva master template (used by the `canva` skill).
-# Copy to `teknik-poster-canva.yaml` and fill in the ids of YOUR design; while that file does not exist the bot
-# keeps the default path (Flow raw poster + deterministic info band from coo/teknik_poster.py).
+# Copy to `teknik-poster-canva.yaml`, fill in the ids of YOUR design and set `poster_motoru: canva` in the concept
+# file. The default engine is the local SVG template (teknik-poster-sablon.svg + coo/poster_sablon.py).
 # Find the ids with the Canva connector: read-design on your master design → page id and element ids.
 # Never edit the master design: every product gets a copy (copy-design) and only the copy is filled.
 ana_tasarim: <MASTER_DESIGN_ID>        # design with placeholders

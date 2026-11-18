@@ -17,6 +17,7 @@ from typing import Any
 import yaml
 
 from .ayar import CONFIG_KLASORU, MAGAZA_KLASORU, STUDIO_URL, URUNLER_KLASORU
+from .web_oku import WEB_OKUMA_SIRASI
 
 SAYFA = f"{STUDIO_URL}/reels"
 REHBER = CONFIG_KLASORU / "sosyal" / "kisa-video-rehberi.md"
@@ -204,7 +205,8 @@ def istem(istek: dict[str, Any], k: Path | None = None) -> str:
         + (f"Patronun teması: {tema}\n" if tema else "")
         + f"Bugün {bugun.isoformat()}. Fikirleri önümüzdeki 14 güne yay (dolu günler: {', '.join(dolu) or 'yok'}; "
         "aynı güne ikinci fikir koyma). Türkiye'de Reels için iyi saatleri seç (genelde 12:00–13:00 ya da 19:00–21:00).\n"
-        "1) TREND ARAŞTIRMASI (WebSearch/WebFetch, ŞU ANKİ hafta): Instagram Reels ve TikTok'ta Türkiye'de ve dünyada "
+        + WEB_OKUMA_SIRASI
+        + "1) TREND ARAŞTIRMASI (WebSearch ile ara, sayfaları yukarıdaki sırayla oku; ŞU ANKİ hafta): Instagram Reels ve TikTok'ta Türkiye'de ve dünyada "
         "yükselen sesler/formatlar (TikTok Creative Center, Instagram 'trending audio' haftalık listeleri, Later/"
         "Buffer/HubSpot trend yazıları), 3D baskı / masaüstü düzen / ev dekoru / oyuncu odası nişindeki trendler ve "
         "yaklaşan özel günler (yerli takvim). Her trend için kaynak URL yaz; doğrulayamadığın trende guven: düşük yaz.\n"

@@ -20,6 +20,11 @@ Akış:
 6. Çıktı: veri/02_Urunler/<sku>/model/kullanim_testi/<tarih>/rapor.json + pano.png (+ birakma.gif);
    KALDI ise ölçülü `duzeltme_onerisi` listesi.
 
+Taban pedi (urun.yaml > taban_pedi, isteğe bağlı): tabanın dış köşelerine silindir pedler; stand ped kalınlığı kadar
+yükselir, stand–masa sürtünmesi ped μ'südür, devrilme çokgeni ped zarfıdır. Ped yoksa stand doğrudan PLA ile basar.
+Dokunma: `dokunma` (telefon standa göre kayma mm), `dokunma_devrilme` (stand pitch/roll °), `dokunma_kayma_mm`
+(standın masadaki yatay kayması mm).
+
 Tüm varsayımlar (sürtünme, yoğunluk, nesne parça yerleşimi) raporda `varsayimlar` altında yazılır; doğrulanmamış
 nesne ölçüleri `dogrulanmadi` olarak işaretlenir.
 """
@@ -101,10 +106,35 @@ def test_tanimi(urun: dict[str, Any], konfig: Path | None = None) -> dict[str, A
     tanim = derin_birlestir(tanim, ezme)
     tanim["fizik"] = derin_birlestir(sk.get("fizik") or {}, tanim.get("fizik") or {})
     tanim["sablon"] = ad
+    ped = taban_pedi_coz(urun, tanim["fizik"])
+    if ped:
+        tanim["fizik"]["taban_pedi"] = ped
+    else:
+        tanim["fizik"].pop("taban_pedi", None)
     tanim.setdefault("kilif", [False])
     tanim.setdefault("yonler", ["dik"])
     tanim.setdefault("kapasite", 1)
     return tanim
+
+
+def taban_pedi_coz(urun: dict[str, Any], fizik: dict[str, Any]) -> dict[str, Any] | None:
+    """urun.yaml > taban_pedi ⊕ şablon fizik.pedler.<malzeme> varsayılanları. Yoksa None (ped yok)."""
+    ped = urun.get("taban_pedi")
+    if not isinstance(ped, dict) or not ped:
+        return None
+    malzeme = str(ped.get("malzeme") or "silikon")
+    varsayilan = ((fizik.get("pedler") or {}).get(malzeme) or {})
+    birlesik = {"adet": 4, "cap_mm": 9.0, "kalinlik_mm": 2.0, **varsayilan,
+                **{k: v for k, v in ped.items() if v is not None}}
+    if birlesik.get("mu") is None:
+        raise ValueError(f"taban_pedi: {malzeme!r} için μ yok (urun.yaml taban_pedi.mu veya sablonlar.yaml fizik.pedler)")
+    sonuc = {"malzeme": malzeme, "adet": int(birlesik["adet"]), "cap_mm": float(birlesik["cap_mm"]),
+             "kalinlik_mm": float(birlesik["kalinlik_mm"]), "mu": float(birlesik["mu"])}
+    if sonuc["adet"] < 3 or sonuc["cap_mm"] <= 0 or sonuc["kalinlik_mm"] < 0 or sonuc["mu"] <= 0:
+        raise ValueError(f"taban_pedi geçersiz: {sonuc}")
+    if birlesik.get("not"):
+        sonuc["not"] = str(birlesik["not"])
+    return sonuc
 
 
 # ============================================================================ geometri yardımcıları
@@ -143,8 +173,22 @@ def _mat(q_wxyz: np.ndarray) -> np.ndarray:
 
 
 def _aci_farki(R1: np.ndarray, R2: np.ndarray) -> float:
+    """Toplam dönme açısı (eksen-açı; yaw dahil)."""
     c = (np.trace(R1.T @ R2) - 1) / 2
     return math.degrees(math.acos(max(-1.0, min(1.0, c))))
+
+
+def _egim_farki(R1: np.ndarray, R2: np.ndarray) -> float:
+    """Devrilme yönündeki eğilme (pitch/roll): gövde z ekseninin dünyada yön değişimi. Düşey eksen etrafındaki
+    dönüş (yaw, masada dönerek kayma) bu açıyı DEĞİŞTİRMEZ."""
+    c = float(np.dot(R1[:, 2], R2[:, 2]))
+    return math.degrees(math.acos(max(-1.0, min(1.0, c))))
+
+
+def _yaw_farki(R1: np.ndarray, R2: np.ndarray) -> float:
+    """Düşey (dünya z) eksen etrafındaki dönüş, derece (mutlak)."""
+    R = R2 @ R1.T
+    return abs(math.degrees(math.atan2(R[1, 0], R[0, 0])))
 
 
 @dataclass
@@ -349,6 +393,7 @@ class Stand:
     com: np.ndarray
     atalet_g_mm2: np.ndarray     # 3x3, com etrafında
     bilgi: dict[str, Any]
+    ped: dict[str, Any] | None = None  # taban pedi (taban_pedi_coz + ped_yerlesimi konumlar_mm); None: ped yok
 
     @property
     def zarf(self) -> tuple[np.ndarray, np.ndarray]:
@@ -488,13 +533,60 @@ def stand_hazirla(stl: Path, urun: dict[str, Any], fizik: dict[str, Any], onbell
                   "su_gecirmez": bool(tam.is_watertight), "onbellek": str(yol)})
 
 
-def taban_cokgeni(stand: Stand, esik_mm: float = 0.8):
-    from shapely.geometry import MultiPoint
+def taban_cokgeni(stand: Stand, esik_mm: float = 0.8, ped_dahil: bool = True):
+    """Masaya basan destek çokgeni (dışbükey). Ped varsa pedlerin (disk) dış zarfı — stand masaya pedlerle basar."""
+    from shapely.geometry import MultiPoint, Point
+    from shapely.ops import unary_union
 
+    if ped_dahil and stand.ped and stand.ped.get("konumlar_mm"):
+        r = float(stand.ped["cap_mm"]) / 2
+        return unary_union([Point(float(x), float(y)).buffer(r, 32) for x, y in stand.ped["konumlar_mm"]]).convex_hull
     v = np.asarray(stand.mesh.vertices)
     zmin = v[:, 2].min()
     alt = v[v[:, 2] <= zmin + esik_mm][:, :2]
     return MultiPoint([tuple(p) for p in alt]).convex_hull
+
+
+def taban_izi(stand: Stand, esik_mm: float = 0.8):
+    """Tabanın gerçek basma izi: en alt düzlemdeki aşağı bakan üçgenlerin birleşimi (dışbükey değil)."""
+    from shapely.geometry import Polygon
+    from shapely.ops import unary_union
+
+    m = stand.mesh
+    v, f = np.asarray(m.vertices), np.asarray(m.faces)
+    zmin = v[:, 2].min()
+    alt = (v[f][:, :, 2] <= zmin + esik_mm).all(axis=1) & (np.asarray(m.face_normals)[:, 2] < -0.5)
+    ucgenler = [Polygon(v[ff][:, :2]) for ff in f[alt]]
+    ucgenler = [u for u in ucgenler if u.is_valid and u.area > 1e-6]
+    if not ucgenler:
+        return taban_cokgeni(stand, esik_mm, ped_dahil=False)
+    return unary_union(ucgenler).buffer(0.05).buffer(-0.05)
+
+
+def ped_yerlesimi(stand: Stand, ped: dict[str, Any]) -> list[list[float]]:
+    """Pedleri taban izinin en dış köşelerine (45°, 135°, … yönlerinde) ped tamamen izin içinde kalacak şekilde
+    yerleştirir. Dönen: [[x, y], …] mm (stand ekseni)."""
+    from shapely.geometry import Point
+
+    r = float(ped["cap_mm"]) / 2
+    iz = taban_izi(stand)
+    ic = iz.buffer(-(r + 0.5))
+    if ic.is_empty:  # taban pedden dar: merkezi izin içinde kalsın
+        ic = iz.buffer(-0.5) if not iz.buffer(-0.5).is_empty else iz
+    merkez = taban_cokgeni(stand, ped_dahil=False).centroid
+    noktalar = []
+    for g in getattr(ic, "geoms", [ic]):
+        noktalar += list(g.exterior.coords) if hasattr(g, "exterior") else list(g.coords)
+    P = np.array(noktalar, float)
+    secilen: list[list[float]] = []
+    adet = int(ped.get("adet", 4))
+    for i in range(adet):
+        a = math.radians(45 + 360 * i / adet)
+        u = np.array([math.cos(a), math.sin(a)])
+        q = P[np.argmax((P - [merkez.x, merkez.y]) @ u)]
+        if not any(Point(*q).distance(Point(*s_)) < 2 * r for s_ in secilen):
+            secilen.append([round(float(q[0]), 2), round(float(q[1]), 2)])
+    return secilen
 
 
 def _yon_adi(derece: float) -> str:
@@ -652,6 +744,14 @@ def sahne_xml(stand: Stand, nesneler: list[Nesne], fizik: dict[str, Any], kamera
         varliklar.append(f'<mesh name="h{i}" vertex="{_f(p * mm)}" inertia="shell"/>')
         stand_geom.append(f'<geom type="mesh" mesh="h{i}" friction="{mu_pla} 0.005 0.0001" group="3" '
                           f'rgba=".8 .7 .5 .3"/>')
+    if stand.ped and stand.ped.get("konumlar_mm"):
+        # ped: tabanın altında, alt yüzü kalınlık kadar aşağıda kısa silindir; stand masaya yalnız pedlerle basar
+        zmin = float(np.asarray(stand.mesh.vertices)[:, 2].min())
+        r, k, mu_ped = float(stand.ped["cap_mm"]) / 2, float(stand.ped["kalinlik_mm"]), float(stand.ped["mu"])
+        for j, (x, y) in enumerate(stand.ped["konumlar_mm"]):
+            stand_geom.append(f'<geom name="ped{j}" type="cylinder" size="{r * mm:.6g} {max(k, 0.2) / 2 * mm:.6g}" '
+                              f'pos="{_f(np.array([x, y, zmin - k / 2]) * mm)}" friction="{mu_ped} 0.005 0.0001" '
+                              f'group="2" rgba=".2 .2 .2 1"/>')
     gv, gf = np.asarray(stand.gorsel.vertices) * mm, np.asarray(stand.gorsel.faces)
     varliklar.append(f'<mesh name="gorsel" vertex="{_f(gv)}" face="{" ".join(map(str, gf.ravel()))}" inertia="shell"/>')
     I = stand.atalet_g_mm2 * 1e-3 * 1e-6
@@ -707,6 +807,8 @@ class Sahne:
 
         self.mj = mujoco
         self.stand, self.nesneler, self.fizik = stand, nesneler, fizik
+        # ped varsa stand ped kalınlığı kadar yükselir; dünya z = masadan yükseklik (stand ekseni = dünya − z0)
+        self.z0 = float(stand.ped["kalinlik_mm"]) if stand.ped and stand.ped.get("konumlar_mm") else 0.0
         lo, hi = stand.zarf
         for n in nesneler:
             nlo, nhi = n.zarf()
@@ -731,14 +833,32 @@ class Sahne:
         if durum is not None:
             self.d.qpos[:] = durum
         else:
-            self.d.qpos[0:7] = [0, 0, 0, 1, 0, 0, 0]
+            self.d.qpos[0:7] = [0, 0, self.z0 * 0.001, 1, 0, 0, 0]
             for k, (R, t) in enumerate(nesne_pozlari or []):
-                self.d.qpos[7 + 7 * k: 14 + 7 * k] = np.r_[t * 0.001, _quat_wxyz(R)]
+                self.yerlestir(k, R, t)
             for k in range(len(nesne_pozlari or []), len(self.nesneler)):  # yerleşmemiş nesneler uzakta
                 self.d.qpos[7 + 7 * k: 14 + 7 * k] = [5 + k, 5, 0.2, 1, 0, 0, 0]
         self.d.qvel[:] = 0
         self.m.opt.gravity[:] = self.g0
         mj.mj_forward(self.m, self.d)
+
+    def yerlestir(self, k: int, R: np.ndarray, t_stand: np.ndarray) -> None:
+        """Nesne k'yı stand eksenindeki (dinlenme) poza koyar (qpos; mj_forward çağırmaz)."""
+        t = np.asarray(t_stand, float) + [0, 0, self.z0]
+        self.d.qpos[7 + 7 * k: 14 + 7 * k] = np.r_[t * 0.001, _quat_wxyz(R)]
+
+    def ornekleyici(self, aralik_s: float, fn: Callable[[float], None]) -> Callable[[float], None]:
+        """`calistir(izle=…)` için: adım sayacıyla her `aralik_s` saniyede bir `fn` çağırır.
+        (Eski `int(t*1000) % N == 0` kayan nokta yuvarlamasıyla örnek atlıyordu.)"""
+        guncelleme_s = max(1, int(round(0.002 / self.m.opt.timestep))) * self.m.opt.timestep
+        n = max(1, int(round(aralik_s / guncelleme_s)))
+        sayac = {"i": 0}
+
+        def izle(t: float) -> None:
+            sayac["i"] += 1
+            if sayac["i"] % n == 0:
+                fn(t)
+        return izle
 
     def poz(self, govde: int) -> tuple[np.ndarray, np.ndarray]:
         return self.d.xmat[govde].reshape(3, 3).copy(), self.d.xpos[govde].copy() * 1000
@@ -799,11 +919,16 @@ class Sahne:
         izler: list[tuple[float, np.ndarray]] = []
         masa = {"degdi": False}
 
+        def masa_kontrol(_t: float) -> None:
+            if self.masaya_degiyor(k):
+                masa["degdi"] = True
+
+        masa_izle = self.ornekleyici(0.02, masa_kontrol)
+
         def izle(t: float) -> None:
             if t > sure_s - 0.35:
                 izler.append((t, self.poz(self.nesne_govde[k])[1]))
-            if int(t * 1000) % 20 == 0 and self.masaya_degiyor(k):
-                masa["degdi"] = True
+            masa_izle(t)
 
         self.calistir(sure_s, kare=kare, izle=izle)
         hiz = 0.0
@@ -980,7 +1105,7 @@ def senaryo_calistir(tanim: dict[str, Any], stand: Stand, carp: Carpisma, nesne:
             sahne.sifirla(pozlar + [(a["R"], t0)])
             if durum is not None:  # önceki nesneler oturmuş halleriyle
                 sahne.d.qpos[: 7 * (k + 1)] = durum[: 7 * (k + 1)]
-                sahne.d.qpos[7 + 7 * k: 14 + 7 * k] = np.r_[t0 * 0.001, _quat_wxyz(a["R"])]
+                sahne.yerlestir(k, a["R"], t0)
                 sahne.mj.mj_forward(sahne.m, sahne.d)
             o = sahne.otur(k, sure, hiz_esik)
             Rn, tn = sahne.poz(sahne.nesne_govde[k])
@@ -1096,10 +1221,10 @@ def senaryo_calistir(tanim: dict[str, Any], stand: Stand, carp: Carpisma, nesne:
                 "stand_donme_derece": round(_aci_farki(Rs0, Rs1), 2), "masaya_degdi": bool(masa_izi["v"])}
 
     def _izleyici(masa_izi):
-        def izle(t: float) -> None:
-            if int(t * 1000) % 20 == 0 and sahne.masaya_degiyor(0):
+        def izle(_t: float) -> None:
+            if sahne.masaya_degiyor(0):
                 masa_izi["v"] = True
-        return izle
+        return sahne.ornekleyici(0.02, izle)
 
     testler = sonuc["testler"]
     # bırakma
@@ -1152,8 +1277,13 @@ def senaryo_calistir(tanim: dict[str, Any], stand: Stand, carp: Carpisma, nesne:
         Rn0, tn0 = sahne.poz(sahne.nesne_govde[0])
         p_yerel = nesne.noktalar["ekran_ust_ucte_bir"]
         iz = {"v": False}
-        en_cok = {"stand": 0.0, "kayma": 0.0}
+        en_cok = {"egim": 0.0, "yaw": 0.0, "toplam": 0.0, "kayma": 0.0, "stand_kayma": 0.0}
         gid = sahne.nesne_govde[0]
+        # standın masadaki kayması: taban merkezinin (masa düzlemindeki nokta) yatay yer değiştirmesi
+        tc = taban_cokgeni(stand).centroid
+        taban_nokta = np.array([tc.x, tc.y, float(np.asarray(stand.mesh.vertices)[:, 2].min())])
+        _, ts0 = sahne.poz(sahne.stand_govde)
+        taban0 = Rs0 @ taban_nokta + ts0
 
         def kuvvet(_t: float):
             Rn_, tn_ = sahne.poz(gid)
@@ -1162,19 +1292,31 @@ def senaryo_calistir(tanim: dict[str, Any], stand: Stand, carp: Carpisma, nesne:
             r = p - sahne.d.xipos[gid]
             return {gid: (Fv, np.cross(r, Fv))}
 
-        def izle(t: float) -> None:
-            if int(t * 1000) % 10 == 0:
-                Rs1, _ = sahne.poz(sahne.stand_govde)
-                en_cok["stand"] = max(en_cok["stand"], _aci_farki(Rs0, Rs1))
-                en_cok["kayma"] = max(en_cok["kayma"], _rel_kayma(ref, sahne.nesne_stand_gore(0))[0])
-                if sahne.masaya_degiyor(0):
-                    iz["v"] = True
+        def olc(_t: float = 0.0) -> None:
+            Rs1, ts1 = sahne.poz(sahne.stand_govde)
+            en_cok["egim"] = max(en_cok["egim"], _egim_farki(Rs0, Rs1))
+            en_cok["yaw"] = max(en_cok["yaw"], _yaw_farki(Rs0, Rs1))
+            en_cok["toplam"] = max(en_cok["toplam"], _aci_farki(Rs0, Rs1))
+            en_cok["stand_kayma"] = max(en_cok["stand_kayma"],
+                                        float(np.linalg.norm((Rs1 @ taban_nokta + ts1 - taban0)[:2])))
+            en_cok["kayma"] = max(en_cok["kayma"], _rel_kayma(ref, sahne.nesne_stand_gore(0))[0])
+            if sahne.masaya_degiyor(0):
+                iz["v"] = True
 
-        sahne.calistir(float(dk.get("sure_s", 1.0)), kuvvet=kuvvet, izle=izle)
+        sahne.calistir(float(dk.get("sure_s", 1.0)), kuvvet=kuvvet, izle=sahne.ornekleyici(0.01, olc))
+        olc()  # son durum
         b = _bitir(ref, Rs0, iz)
+        b.pop("stand_donme_derece", None)  # dokunmada toplam açı yerine eğim/yaw ayrı yazılır
+        Rs_son, ts_son = sahne.poz(sahne.stand_govde)
         nokta_dunya = Rn0 @ p_yerel + tn0
         testler["dokunma"] = {"kuvvet_n": F, "nokta_mm": nokta_dunya.round(1).tolist(),
-                              "en_cok_stand_donme_derece": round(en_cok["stand"], 2),
+                              "en_cok_stand_egim_derece": round(en_cok["egim"], 2),
+                              "en_cok_stand_yaw_derece": round(en_cok["yaw"], 2),
+                              "en_cok_stand_toplam_donme_derece": round(en_cok["toplam"], 2),
+                              "en_cok_stand_kayma_mm": round(en_cok["stand_kayma"], 2),
+                              "son_stand_kayma_mm": round(float(np.linalg.norm(
+                                  (Rs_son @ taban_nokta + ts_son - taban0)[:2])), 2),
+                              "olcum_araligi_s": 0.01,
                               "en_cok_nesne_kayma_mm": round(en_cok["kayma"], 1), **b}
     sahne.sifirla(durum=durum_otur)
     return sonuc
@@ -1294,9 +1436,24 @@ def kurallari_degerlendir(tanim: dict[str, Any], senaryolar: list[dict[str, Any]
         if "dokunma" in kur and t.get("dokunma"):
             mx = float(kur["dokunma"].get("nesne_kayma_mm_max", 3))
             d = t["dokunma"]
-            gecti = d["en_cok_nesne_kayma_mm"] <= mx and d["en_cok_stand_donme_derece"] < st_sinir and not d["masaya_degdi"]
+            gecti = d["en_cok_nesne_kayma_mm"] <= mx and not d["masaya_degdi"]
             sonuc.append(_k("dokunma", e, gecti, d["en_cok_nesne_kayma_mm"], f"≤ {mx:g}", "mm",
-                            f"ekrana {d['kuvvet_n']:g} N: stand en çok {d['en_cok_stand_donme_derece']}° döndü"))
+                            f"ekrana {d['kuvvet_n']:g} N: telefonun standa göre en çok kayması"
+                            + (" — TELEFON MASAYA DEĞDİ" if d["masaya_degdi"] else "")))
+            egim = float(d.get("en_cok_stand_egim_derece", 0))
+            sonuc.append(_k("dokunma_devrilme", e, egim < st_sinir, egim, f"< {st_sinir:g}", "°",
+                            f"ekrana {d['kuvvet_n']:g} N: standın devrilme yönündeki en çok eğilmesi (pitch/roll; "
+                            f"masada dönüş/yaw hariç, yaw {d.get('en_cok_stand_yaw_derece', 0)}°)"
+                            + (" — STAND DEVRİLİYOR" if egim >= st_sinir else "")))
+        if "dokunma_kayma_mm" in kur and t.get("dokunma"):
+            mx = float(kur["dokunma_kayma_mm"].get("max", 2))
+            d = t["dokunma"]
+            ped = fz.get("taban_pedi")
+            sur = fz.get("surtunme") or {}
+            mu = (f"ped μ {ped['mu']:g} ({ped['malzeme']})" if ped else
+                  f"μ {max(float(sur.get('pla', 0.3)), float(sur.get('masa', 0.35))):g} (PLA–masa, ped yok)")
+            sonuc.append(_k("dokunma_kayma_mm", e, d["en_cok_stand_kayma_mm"] <= mx, d["en_cok_stand_kayma_mm"],
+                            f"≤ {mx:g}", "mm", f"ekrana {d['kuvvet_n']:g} N: standın masada yatay kayması; {mu}"))
     return sonuc
 
 
@@ -1370,11 +1527,29 @@ def duzeltme_onerileri(tanim: dict[str, Any], senaryolar: list[dict[str, Any]], 
             elif s["tip"] == "kulaklik":
                 oneriler.append(f"{s['etiket']}: kulaklık bandı tepede tutunamadı: bant yayının oturacağı en az "
                                 "40 mm uzunluk, 25 mm genişlikte iç bükey sele tasarla.")
-    st_sinir = float(fz.get("stand_donme_siniri_derece", 3))
-    dokunma_devirdi = [k for k in ilk("dokunma") if "STAND" in k["aciklama"] or
-                       float(ss[k["senaryo"]]["testler"]["dokunma"]["en_cok_stand_donme_derece"]) >= st_sinir]
+    dokunma_devirdi = ilk("dokunma_devrilme")
     dev = ilk("devrilme_acisi_derece") + [k for k in ilk("egme") if k.get("stand_devrildi")]
-    kayma = [k for k in ilk("egme") + ilk("dokunma") if not k.get("stand_devrildi") and k not in dokunma_devirdi]
+    stand_kayiyor = ilk("dokunma_kayma_mm")
+    # stand devrilen/kayan senaryoda telefonun standa göre kayması ikincil: önce stand düzeltilir
+    stand_oynadi = {k["senaryo"] for k in dokunma_devirdi + stand_kayiyor}
+    kayma = [k for k in ilk("egme") + ilk("dokunma") if not k.get("stand_devrildi")
+             and not (k["kural"] == "dokunma" and k["senaryo"] in stand_oynadi)]
+    if stand_kayiyor:
+        en = max(stand_kayiyor, key=lambda k: float(k["deger"]))
+        s = ss[en["senaryo"]]
+        F = float((fz.get("dokunma") or {}).get("kuvvet_n", 3))
+        th = math.radians(float((s.get("olcumler") or {}).get("gorus_acisi_derece") or 65))
+        Mg = (stand.kutle_g + float(s["kutle_g"])) / 1000 * G
+        ped = fz.get("taban_pedi")
+        sur = fz.get("surtunme") or {}
+        mu = float(ped["mu"]) if ped else max(float(sur.get("pla", 0.3)), float(sur.get("masa", 0.35)))
+        # statik: kaymama μ·(M·g + F·cosθ) ≥ F·sinθ
+        mu_gerek = F * math.sin(th) / (Mg + F * math.cos(th))
+        m_gerek = max(0.0, (F * math.sin(th) / mu - F * math.cos(th)) / G * 1000)
+        oneriler.append(f"Stand ekrana {F:g} N dokunuşta masada {en['deger']} mm kayıyor ({en['senaryo']}; şu an μ "
+                        f"{mu:g}, toplam {Mg / G * 1000:.0f} g). Statik tahminle kaymamak için μ ≥ {mu_gerek:.2f} ya da "
+                        f"toplam ~{m_gerek:.0f} g gerekir: tabana 4 adet yapışkanlı silikon ped (μ≈0,8; "
+                        "urun.yaml > taban_pedi) ekle veya tabana ağırlık koy.")
     if dev:
         # en kötü senaryo: en düşük devrilme açısı
         en_s = min((s for s in senaryolar if s["yerlesti"]), key=lambda s: s["olcumler"]["devrilme"]["min_derece"])
@@ -1587,6 +1762,10 @@ def kullanim_testi(stl: Path, urun: dict[str, Any], cikti: Path | None = None, g
     fz = tanim["fizik"]
     log(f"stand hazırlanıyor: {stl.name}")
     stand = stand_hazirla(Path(stl), urun, fz, log=log)
+    if fz.get("taban_pedi"):
+        stand.ped = {**fz["taban_pedi"], "konumlar_mm": ped_yerlesimi(stand, fz["taban_pedi"])}
+        log(f"taban pedi: {stand.ped['adet']} × {stand.ped['malzeme']} μ {stand.ped['mu']:g} → "
+            f"{stand.ped['konumlar_mm']}")
     carp = Carpisma(stand)
     senaryolar = []
     gif: list = []
@@ -1612,6 +1791,11 @@ def kullanim_testi(stl: Path, urun: dict[str, Any], cikti: Path | None = None, g
         "kutle": stand.kutle_kaynagi,
         "kutle_dagilimi": "stand homojen yoğunluk (ağırlık merkezi geometrik hacim merkezi)",
         "surtunme": sur, "surtunme_kurali": "MuJoCo: temas çiftinde büyük μ",
+        "taban_pedi": ({**stand.ped, "model": (
+            f"{len(stand.ped['konumlar_mm'])} silindir temas (Ø{stand.ped['cap_mm']:g} × {stand.ped['kalinlik_mm']:g} mm) "
+            "taban izinin dış köşelerinde; stand ped kalınlığı kadar yükseltildi; stand–masa sürtünmesi ped μ; "
+            "devrilme çokgeni pedlerin dış zarfı"), "dogrulanmadi": "ped μ üretici/ölçüm değil, tipik değer"}
+                       if stand.ped else "yok — stand masaya doğrudan PLA ile basar"),
         "masa": "düz, rijit; eğme yerçekimi döndürülerek, sarsma yatay sanal ivme ile",
         "nesne_geometrisi": "ilkel bileşim (kutu/kapsül/elipsoid/silindir); dış zarf ve kütle kaynakta",
         "on_yon": "−y (STL ön yüzü; blender_gorunus kuralı)",
@@ -1639,7 +1823,9 @@ def kullanim_testi(stl: Path, urun: dict[str, Any], cikti: Path | None = None, g
         if gorsel:
             temsil = next((s for s in senaryolar if any(k["durum"] == "KALDI" and k["senaryo"] == s["etiket"]
                                                         and k.get("zorunlu", True) for k in kurallar)), senaryolar[0])
-            vs = (f"Varsayımlar: kütle {stand.kutle_kaynagi}; μ " + ", ".join(f"{k} {v}" for k, v in sur.items())
+            ped_metni = (f"; taban pedi {len(stand.ped['konumlar_mm'])} × {stand.ped['malzeme']} Ø{stand.ped['cap_mm']:g}"
+                         f"×{stand.ped['kalinlik_mm']:g} mm μ {stand.ped['mu']:g}" if stand.ped else "; taban pedi yok")
+            vs = (f"Varsayımlar: kütle {stand.kutle_kaynagi}; μ " + ", ".join(f"{k} {v}" for k, v in sur.items()) + ped_metni
                   + f"; nesneler ilkel geometri (dogrulanmadi: {', '.join(varsayimlar['dogrulanmamis_nesne_olculeri']) or '—'}).")
             pano_ciz(cikti / "pano.png", str(urun.get("ad") or ""), str(urun.get("sku") or ""), durum, temsil,
                      senaryolar, kurallar, vs, tarih)

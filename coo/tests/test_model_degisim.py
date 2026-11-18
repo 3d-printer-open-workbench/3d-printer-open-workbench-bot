@@ -354,6 +354,12 @@ def test_zincir_uctan_uca(bot, monkeypatch) -> None:
         (k / "gorsel" / "konsept" / f"{konsept['ad']}-3x4.png").write_bytes(b"p")
         await zincir_sonrasi(True)
 
+    def sahte_yerel_poster(sku, kaydet=True, zaman_asimi=600, ad="teknik-poster"):  # varsayılan yerel şablon (Inkscape) — Flow/ajan yok
+        cagri.append("poster:yerel")
+        p = k / "gorsel" / "konsept" / "teknik-poster-3x4.png"
+        p.write_bytes(b"p")
+        return {"basarili": True, "poster": str(p), "dikey": None}
+
     def sahte_gorsel(sku):
         cagri.append("magaza_gorsel")
         (k / "magaza" / "gorseller.json").write_text(json.dumps({"gorseller": [
@@ -363,6 +369,7 @@ def test_zincir_uctan_uca(bot, monkeypatch) -> None:
     monkeypatch.setattr(cm, "_dilimleme_ozeti_gonder", sahte_dilim)
     monkeypatch.setattr(cm, "_studyo_uret", sahte_studyo)
     monkeypatch.setattr(cm, "_konsept_uret", sahte_konsept)
+    monkeypatch.setattr(cm.poster_sablon, "alt_surecle_uret", sahte_yerel_poster)
     monkeypatch.setattr(cm, "magaza_gorsel_hazirla", sahte_gorsel)
     asil_erp = md.erp_gcode_guncelle  # cm.model_degisim ile md aynı modül
     monkeypatch.setattr(cm.model_degisim, "erp_gcode_guncelle", lambda sku: asil_erp(sku, istek=SahteErp()))
@@ -386,7 +393,7 @@ def test_zincir_uctan_uca(bot, monkeypatch) -> None:
     assert "ERP reçetesi yeni G-code'dan güncellendi" in tg.metin()
     # 5-6) studyo:onay → poster (video yok) → mağaza görselleri → İkas önizlemesi (metin farkı → önce metin)
     _cb(cm, tg, "studyo:onay:tel")
-    assert cagri[-2:] == ["poster:False", "magaza_gorsel"]
+    assert cagri[-2:] == ["poster:yerel", "magaza_gorsel"]  # Canva/Flow ajanı çağrılmaz
     v = yaml_oku(k)
     assert v["model_degisimi"]["durum"] == "YAYIN_ONAYI"
     assert v["model_degisimi"]["tamamlanan"] == ["renk", "dilimleme", "erp", "studyo", "poster", "magaza_gorselleri"]
@@ -512,3 +519,30 @@ def test_elle_kontrol_onceden_onaylanmis_urun(bot) -> None:
     tg2 = SahteTg()
     _cb(cm, tg2, "md:kontrol:tel")  # ikinci kez: aynı STL, yine listeyi gösterir
     assert "Model değişti" in tg2.metin()
+
+
+def test_konsept_yerel_poster_chrome_ve_ajan_gerektirmez(bot, monkeypatch) -> None:
+    """Teknik poster varsayılan yerel şablondan: video istenmezse Flow ajanı/Chrome hiç çağrılmaz."""
+    cm, k, ajanlar = bot
+    p = k / "gorsel" / "konsept" / "teknik-poster-3x4.png"
+    p.parent.mkdir(parents=True, exist_ok=True)
+
+    def sahte(sku, kaydet=True, zaman_asimi=600, ad="teknik-poster"):
+        p.write_bytes(b"p")
+        return {"basarili": True, "poster": str(p), "dikey": None}
+
+    monkeypatch.setattr(cm.poster_sablon, "alt_surecle_uret", sahte)
+    monkeypatch.setattr(cm, "ekran_var", lambda: (_ for _ in ()).throw(AssertionError("Chrome gerekmemeli")))
+    sonuc: list[bool] = []
+
+    async def bitti(ok: bool) -> None:
+        sonuc.append(ok)
+
+    konsept = {"ad": "teknik-poster", "baslik": "Teknik Poster", "bilgi_katmani": "teknik_poster", "video": False,
+               "oranlar": ["3:4", "9:16"], "poster_motoru": "yerel"}
+    tg = SahteTg()
+    asyncio.run(cm._konsept_uret(tg, 99, "tel", konsept, zincir_sonrasi=bitti))
+    assert sonuc == [True] and ajanlar == [] and "yerel şablon" in tg.metin()
+    monkeypatch.setattr(cm.poster_sablon, "alt_surecle_uret", lambda sku, **_: {"basarili": False, "hata": "foto yok"})
+    asyncio.run(cm._konsept_uret(tg, 99, "tel", konsept, zincir_sonrasi=bitti))
+    assert sonuc == [True, False] and "foto yok" in tg.metin()

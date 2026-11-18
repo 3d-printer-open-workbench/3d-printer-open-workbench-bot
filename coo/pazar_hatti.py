@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from .ayar import URUNLER_KLASORU
+from .web_oku import WEB_OKUMA_SIRASI
 
 MIN_ORNEK = 3
 
@@ -39,7 +40,8 @@ def pazar_istemi(sku: str, urunler_klasoru: Path | None = None) -> str:
         f"Ürün bilgisi: `02_Urunler/{sku}/urun.yaml` (fikir, yükseklik, saksı mı). "
         f"Seçilen konsept görselleri: {', '.join(konseptler) or '—'}. Referanslar: {', '.join(refler) or '—'}.\n"
         "Görselleri Read ile incele; ürünün türünü, boyutunu ve tarzını anla.\n\n"
-        "1) WebSearch + WebFetch ile BENZER ürünleri bul (en az 6, ideal 8-12):\n"
+        + WEB_OKUMA_SIRASI
+        + "1) WebSearch ile ara, sayfaları yukarıdaki sırayla oku; BENZER ürünleri bul (en az 6, ideal 8-12):\n"
         "   Öncelik Türkiye: Trendyol, Hepsiburada, Amazon.com.tr, n11, Etsy TR fiyatları, İkas/Shopify mağazaları. "
         "Ek olarak Etsy (global) 2-4 örnek.\n"
         "   Benzerlik ölçütü: aynı ürün tipi (ör. figürlü/karakterli saksı), benzer boyut (±%40), benzer malzeme "

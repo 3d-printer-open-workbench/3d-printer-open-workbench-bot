@@ -218,5 +218,6 @@
     "experiment-tracker": {},
     "kullanim-test-muhendisi": {}
   },
+  "_web_oku_notu": "workbench-web MCP (coo/web_mcp.py, yerel Crawl4AI) salt-okurdur (yalnız GET, robots.txt'ye uyar, özel ağ adreslerini reddeder); bu yüzden dis_mcp_eylemleri listesinde YOKTUR ve her ajan kullanabilir. Güvenlik kapısı web_denetle ile sorgu-dizgisi sızdırma denetimi WebFetch gibi uygulanır. Sandbox açılırsa: Crawl4AI ajanın Bash'inden (python -m coo.web_oku) çalışırsa okunacak alan adları ajan_sandbox.json allowedDomains'e eklenmelidir; MCP sunucusu Claude Code sürecinden başlatıldığı için Bash sandbox'ından etkilenmez.",
   "_sandbox_notu": "Bash OS yalıtımı (config/guvenlik/ajan_sandbox.json) varsayılan KAPALI. Ubuntu 23.10+ AppArmor userns kısıtı bubblewrap'ı engelleyebilir (bkz. docs/security.md). Çalıştığını doğruladıktan sonra varsayilan.sandbox=true yapın."
 }

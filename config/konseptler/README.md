@@ -13,7 +13,8 @@ Front matter keys:
 | `aciklama` | one-line description |
 | `oranlar` | aspect ratios to produce, e.g. `["3:4", "9:16"]` |
 | `video` | also produce a short video from the poster |
-| `bilgi_katmani` | `teknik_poster` → a deterministic size/material band is rendered from real data by `coo/teknik_poster.py` |
+| `bilgi_katmani` | `teknik_poster` → size/material text is rendered from real data (never drawn by AI) |
+| `poster_motoru` | poster engine for a `teknik_poster` concept: `yerel` (default — local SVG template `teknik-poster-sablon.svg` rendered by `coo/poster_sablon.py` with Inkscape), `canva` (your Canva master, needs `teknik-poster-canva.yaml`) or `flow` (Flow raw poster + info band by `coo/teknik_poster.py`) |
 | `referanslar` | optional style reference images, paths relative to this folder (e.g. `referans/<ad>/poster.jpg`) |
 | `video_istemi` | prompt for the image-to-video step |
 
