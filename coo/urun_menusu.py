@@ -195,6 +195,12 @@ def urun_karti(sku: str, urunler_klasoru: Path | None = None,
               if a["no"] >= 2 and (d["stl"] or a["no"] <= 2)
               and not (a["buton"].startswith("magaza:yukle:") and a["tamam"])]  # yüklü: çift ilan olmasın
     butonlar += [erisim[i:i + 2] for i in range(0, len(erisim), 2)]
+    from .model_degisim import bekliyor_mu as model_degisimi_bekliyor, eskiyen_ciktilar
+
+    if d["stl"] and model_degisimi_bekliyor(sku, urunler_klasoru):  # kullanım testi revizyonu sonrası
+        butonlar.append([_b("🔄 Model Değişti → Çıktıları Güncelle", f"md:goster:{sku}")])
+    elif d["stl"] and eskiyen_ciktilar(sku, urunler_klasoru):  # bildirilmemiş (ör. onay yeni koddan önce verildi)
+        butonlar.append([_b("🔄 STL Değişti: Eskiyen Çıktıları Kontrol Et", f"md:kontrol:{sku}")])
     if d["studyo"] and not d["numune"]:  # Patron seçeneği: numune beklemeden, stüdyo karesinden kullanım görseli
         butonlar.append([_b("🏡 Numunesiz Kullanım Görseli (stüdyo karesinden)", f"icerik:kullanimq:{sku}")])
     if d["teknik_poster"] or d["kullanim"] or d["studyo"]:

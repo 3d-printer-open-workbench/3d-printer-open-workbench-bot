@@ -7,13 +7,13 @@ from coo.icerik_hatti import kullanim_istemi
 
 
 def test_kayitli_not_isteme_girer(tmp_path: Path) -> None:
-    kok = tmp_path / "torii"
+    kok = tmp_path / "kapi-standi"
     (kok / "gorsel").mkdir(parents=True)
-    (kok / "urun.yaml").write_text("sku: torii\nicerik_revize_notu: Ps5 ile kullanım Reels i oluştur gamer odasında\n",
+    (kok / "urun.yaml").write_text("sku: kapi-standi\nicerik_revize_notu: Ps5 ile kullanım Reels i oluştur gamer odasında\n",
                                    encoding="utf-8")
-    istem = kullanim_istemi("torii", tmp_path, numunesiz=True)
+    istem = kullanim_istemi("kapi-standi", tmp_path, numunesiz=True)
     assert "Ps5 ile kullanım" in istem and "PATRON NOTU" in istem and "kumandası" in istem
-    assert "Ps5" not in kullanim_istemi("torii", tmp_path, revize_notu="sadece raf", numunesiz=True)
+    assert "Ps5" not in kullanim_istemi("kapi-standi", tmp_path, revize_notu="sadece raf", numunesiz=True)
 
 
 def test_gercek_kullanim_kurali_her_zaman(tmp_path: Path) -> None:

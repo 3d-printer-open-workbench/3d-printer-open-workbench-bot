@@ -48,6 +48,20 @@ Adımlar botun `magaza_hatti.yukle_istemi`'nde (ve `/ikas-yukle`'de). Önce ayn�
 açma. Görselleri `gorseller.json` sırasıyla yükle (ilk = kapak). Dosya yükleme için **file_upload** + `find` ile
 file-input ref'i; ürün sayfası ana çerçevede olduğu için çalışır. Bitince `magaza/yukleme.json` ve `ikas-ekran.png` yaz.
 
+## Mevcut ürünün görsellerini değiştirme (model değişti → bot `md:ikasok`)
+Patron "✅ İkas'ı Güncelle" dediğinde: **yeni ürün AÇMA**, `magaza/yukleme.json > panel_linki`'ndeki ürünü düzenle.
+1. Panel linkini aç; ürün adı `paket.json > baslik` ile aynı değilse DUR (yanlış ürün).
+2. Görseller bölümünde mevcut her görselin üzerindeki sil (çöp kutusu / `×`) ile hepsini kaldır; her silmeden sonra
+   `read_page`/ekran görüntüsüyle kalan sayıyı doğrula.
+3. Yeni dosyaları `magaza/gorseller.json > gorseller` sırasıyla **file_upload** + `find` (file-input ref) ile yükle;
+   ilk = kapak. Sıra karışırsa sürükle-bırak ile düzelt, kapak 1. olmalı.
+4. Varyant medyası tek varyantta ürün galerisini kullanıyorsa ayrıca yükleme; birden çok renk varyantında her varyantın
+   görselini `gorseller.json > varyantlar`'dan değiştir.
+5. Açıklamaya yalnız istemde "metin değişti" denildiyse dokun (review'lu `aciklama_html`, yukarıdaki JS kalıbı);
+   aksi halde başlık, fiyat, SEO, etiket, kategori, stok AYNEN kalır.
+6. Kaydet → paneli yeniden aç, görsel sayısını say → `magaza/guncelleme.json` (`durum: GUNCELLENDI`, `gorsel_sayisi`,
+   `metin_guncellendi`, `stl_sha256`) + `magaza/ikas-guncelleme.png`. Vitrin CDN'i 3–4 dk eski sayfayı gösterebilir.
+
 ## Tema düzenleyici (İkas Studio) — ÖNEMLİ SINIR
 - Düzenleyici `studio.ikasapps.com` **çapraz kaynaklı iframe** içinde: `find`/`read_page`/JS içini GÖREMEZ.
   Yalnız ekran görüntüsü + koordinatla tıklama/yazma çalışır.

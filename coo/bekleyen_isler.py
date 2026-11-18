@@ -9,6 +9,7 @@ Her iş mevcut callback'leri kullanır — yeni onay mantığı icat edilmez:
 |-----|--------------------------------------|---------------------------|-------------------------|------------------------|
 | kf  | konsept seçimi (Flow konseptleri)    | fikir:goster (seç)        | ng:kf (revize notu)     | fikir:yeni             |
 | kt  | kullanım testi onayı bekliyor        | kt:onay                   | ng:kt                   | kt:tasarim (KALDI)     |
+| md  | model değişti, güncelleme bekliyor   | md:zincir / md:yayin      | ng:md                   | md:devam (DURDU)       |
 | cr  | çok renk render onayı                | cokrenk:onay              | ng:cr                   | cokrenk:baslat         |
 | es  | e-ticaret görsel onayı               | studyo:onay               | studyo:revize           | icerik:yenile          |
 | ic  | içerik/görsel onayı (Onay ②)         | icerik:onay               | icerik:revize           | —                      |
@@ -40,6 +41,7 @@ GUNCELLEME_NOTU_BASLIGI = "✏️ Güncelleme notu"
 NOT_TURLERI: dict[str, str] = {
     "kf": "Konsept seçenekleri (Flow)",
     "kt": "Kullanım testi",
+    "md": "Model değişti → bağımlı çıktılar zinciri",
     "ks": "Konsept poster + Reels",
     "hf": "HyperFrames Reels",
     "cr": "Çok renk render'ı",
@@ -48,8 +50,8 @@ NOT_TURLERI: dict[str, str] = {
     "mg": "Mağaza paketi",
 }
 
-SIRA = ("kf", "kt", "cr", "es", "ic", "fy", "yk", "pn", "rd", "dl")
-SIMGE = {"kf": "💡", "kt": "🧪", "cr": "🎨", "es": "🛍️", "ic": "📋", "fy": "💰", "yk": "🚀", "pn": "📌", "rd": "🎞️", "dl": "⚙️"}
+SIRA = ("kf", "kt", "md", "cr", "es", "ic", "fy", "yk", "pn", "rd", "dl")
+SIMGE = {"kf": "💡", "kt": "🧪", "md": "🔄", "cr": "🎨", "es": "🛍️", "ic": "📋", "fy": "💰", "yk": "🚀", "pn": "📌", "rd": "🎞️", "dl": "⚙️"}
 _ANAHTAR_DESENI = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 _BASLIK_DESENI = re.compile(r"\[([a-z]{2})\|([a-z0-9._-]+)\]")
 
@@ -123,6 +125,27 @@ def urun_isleri(sku: str, urunler: Path | None = None) -> list[dict[str, Any]]:
                          not_=f"ng:kt:{sku}", goster=("🖼️ Panoyu Göster", f"kt:goster:{sku}"),
                          ek=[("🛠️ Yeniden Tasarla", f"kt:tasarim:{sku}")] if kaldi else
                          [("🔁 Testi Yinele", f"kt:baslat:{sku}")]))
+
+    # md — model değişti (kullanım testi revizyonu), bağımlı çıktılar güncelleme bekliyor
+    from . import model_degisim
+
+    if model_degisim.bekliyor_mu(sku, urunler):
+        md = model_degisim.degisim_oku(sku, urunler)
+        eski = model_degisim.eskiyen_ciktilar(sku, urunler)
+        yayinda = [a for a in eski if a["yayinda"]]
+        ozet = (f"Model değişti ({str(md.get('kaynak') or 'STL güncellendi').replace('_', ' ')}); {len(eski)} çıktı eski"
+                + (f", {len(yayinda)} tanesi yayında" if yayinda else "") + ": "
+                + ", ".join(a["ad"].split(" ", 1)[1] for a in eski))
+        if md.get("durum") == "DURDU":
+            ozet += f"\n⛔ Zincir *{model_degisim.ADIMLAR.get(str(md.get('adim')), md.get('adim'))}* adımında durdu: " \
+                    + str(md.get("hata") or "")[:200]
+            onay = ("🔁 Kaldığı Yerden Devam", f"md:devam:{sku}")
+        elif md.get("durum") == "YAYIN_ONAYI":
+            onay = ("🛒 Yayın Güncellemesi", f"md:yayin:{sku}")
+        else:
+            onay = ("▶️ Zinciri Güncelle", f"md:zincir:{sku}")
+        isler.append(_is("md", sku, f"Model değişti, güncelleme bekliyor — {ad}", ozet, sku, onay=onay,
+                         not_=f"ng:md:{sku}", goster=("🔄 Eskiyenleri Göster", f"md:goster:{sku}")))
 
     # cr — çok renk boyama sonucu Patron onayında
     cr = v.get("cok_renk") if isinstance(v.get("cok_renk"), dict) else {}

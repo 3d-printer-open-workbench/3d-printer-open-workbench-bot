@@ -106,6 +106,8 @@ _Ajan: cmo-store-director · ~1 $_
 *🚀 Mağazaya Yükle* — Chrome ile İkas'ta ürünü birebir oluşturur, sonra yayındaki sayfayı açıp ad / fiyat / görsel / varyantı paketle karşılaştırır.
 _Ajan: cmo-store-director · ~1,5 $_
 
+🔄 *Model değişti* — kullanım testi GEÇTİ ya da onaylandığında yeni STL, renk / dilimleme / ERP / stüdyo / poster / mağaza görsellerinden yeniyse bot eskiyenleri listeler (⚠️ = yayında). *▶️ Zinciri Güncelle* onaylı renk şemasını koruyarak sırayla yeniden üretir (ara onay yok; stüdyo karelerini sen onaylarsın). ERP gram/süresi yeni G-code'dan yazılır. Sonda: *✅ İkas'ı Güncelle* (mevcut ürünün görselleri; ölçü/ağırlık metni değiştiyse önce *✍️ Metni Güncelle* + editör review) ve *📌 Yeni Pin* (eski pin silinmez). Hata olursa zincir durur → *🔁 Kaldığı Yerden Devam*. Onay daha önce verildiyse ürün kartında *🔄 STL Değişti: Kontrol Et*. Bekleyen İşler'de 🔄 olarak durur.
+
 ⚠️ İkas'a yükleme için bilgisayardaki Chrome'da İkas oturumunun açık olması gerekir."""),
 
     "teklif": ("💼 Teklif", """💼 *İşletmeye Teklif (B2B)*
