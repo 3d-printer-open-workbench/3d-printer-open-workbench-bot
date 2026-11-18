@@ -384,6 +384,79 @@ def stand_kutlesi(urun: dict[str, Any], mesh: Any, fizik: dict[str, Any]) -> tup
                     f"[{duvar:.2f} mm duvar] + %{dolgu * 100:.0f} dolgu × iç {(hacim - kabuk) / 1000:.1f} cm³)")
 
 
+def ag_temizle(mesh):
+    """CoACD'yi çökerten dejenere/yinelenen üçgenleri ve kopuk noktaları temizler (geometri değişmez)."""
+    m = mesh.copy()
+    m.merge_vertices()
+    m.update_faces(m.nondegenerate_faces(height=1e-6))
+    m.update_faces(m.unique_faces())
+    m.remove_unreferenced_vertices()
+    return m
+
+
+def _coacd_isci(kuyruk, verts, faces, ayar) -> None:  # ayrı süreçte çalışır
+    try:
+        import coacd
+
+        coacd.set_log_level("error")
+        sonuc = coacd.run_coacd(coacd.Mesh(verts, faces), **ayar)
+        kuyruk.put(("ok", [np.asarray(v, float) for v, _f in sonuc]))
+    except Exception as e:  # Python düzeyindeki hata
+        kuyruk.put(("hata", f"{type(e).__name__}: {e}"))
+
+
+COACD_AYAR = dict(threshold=0.02, max_convex_hull=128, preprocess_resolution=50, resolution=2000,
+                  mcts_iterations=100, mcts_max_depth=3, mcts_nodes=20, seed=1)
+
+
+def _coacd_guvenli(mesh, log: Callable[[str], None] | None = None, zaman_asimi: int = 600) -> list[np.ndarray]:
+    """CoACD'yi alt süreçte, temizlenmiş ağla ve kademeli yedek ayarlarla çalıştırır.
+    Bir deneme C++ assert ile çökerse (süreç ölür) sıradaki denemeye geçilir."""
+    import multiprocessing as mp
+
+    temiz = ag_temizle(mesh)
+    kucuk = temiz.simplify_quadric_decimation(face_count=8000) if len(temiz.faces) > 9000 else temiz
+    denemeler = [
+        ("temiz ağ", temiz, dict(COACD_AYAR, preprocess_mode="auto")),
+        ("manifold ön işleme", temiz, dict(COACD_AYAR, preprocess_mode="on", seed=2)),
+        ("sadeleştirilmiş ağ", ag_temizle(kucuk), dict(COACD_AYAR, preprocess_mode="on", preprocess_resolution=40,
+                                                       seed=3)),
+    ]
+    hatalar = []
+    ctx = mp.get_context("spawn")
+    for ad, m, ayar in denemeler:
+        kuyruk = ctx.Queue()
+        p = ctx.Process(target=_coacd_isci, args=(kuyruk, np.asarray(m.vertices, float),
+                                                  np.asarray(m.faces, np.int64), ayar), daemon=True)
+        p.start()
+        import queue
+        import time as _t
+
+        durum, veri, bitis = "hata", "zaman aşımı", _t.time() + zaman_asimi
+        while _t.time() < bitis:
+            try:
+                durum, veri = kuyruk.get(timeout=2)
+                break
+            except queue.Empty:
+                if not p.is_alive():  # C++ assert / segfault: süreç sonuç vermeden öldü
+                    try:
+                        durum, veri = kuyruk.get(timeout=1)
+                    except queue.Empty:
+                        durum, veri = "hata", f"süreç çöktü (çıkış kodu {p.exitcode})"
+                    break
+        p.join(5)
+        if p.is_alive():
+            p.kill()
+        if durum == "ok" and veri:
+            if hatalar and log:
+                log(f"CoACD {ad} ile başarılı (önceki denemeler: {'; '.join(hatalar)})")
+            return veri
+        hatalar.append(f"{ad}: {str(veri)[:120]}")
+        if log:
+            log(f"CoACD {ad} başarısız, sıradaki deneniyor")
+    raise RuntimeError("CoACD dışbükey ayrıştırma 3 denemede de başarısız: " + " | ".join(hatalar))
+
+
 def stand_hazirla(stl: Path, urun: dict[str, Any], fizik: dict[str, Any], onbellek: Path | None = None,
                   yuz_sayisi: int = 20000, log: Callable[[str], None] | None = None) -> Stand:
     import trimesh
@@ -398,15 +471,10 @@ def stand_hazirla(stl: Path, urun: dict[str, Any], fizik: dict[str, Any], onbell
         veri = np.load(yol, allow_pickle=False)
         parcalar = [veri[k] for k in sorted(veri.files, key=lambda s: int(s[1:]))]
     else:
-        import coacd
-
         if log:
             log("CoACD dışbükey ayrıştırma (ilk sefer, ~10–40 sn)")
-        coacd.set_log_level("error")
-        sonuc = coacd.run_coacd(coacd.Mesh(np.asarray(mesh.vertices), np.asarray(mesh.faces)), threshold=0.02,
-                                max_convex_hull=128, preprocess_resolution=50, resolution=2000, mcts_iterations=100,
-                                mcts_max_depth=3, mcts_nodes=20, seed=1)
-        parcalar = [np.asarray(v, float) for v, _f in sonuc]
+        # ayrı süreçte, temizlenmiş ağla ve yedek ayarlarla (CoACD C++ assert'i süreci öldürebiliyor)
+        parcalar = _coacd_guvenli(mesh, log)
         onbellek.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(yol, **{f"p{i}": p for i, p in enumerate(parcalar)})
     kutle, kaynak = stand_kutlesi(urun, tam, fizik)
