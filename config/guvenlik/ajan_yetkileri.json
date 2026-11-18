@@ -1,0 +1,222 @@
+{
+  "_aciklama": "Bot ajanlarının (claude -p --agent) en az yetki tablosu. Güvenlik kapısı (.claude/hooks/guvenlik_kapisi.py) bunu okur. Ajan adı süreç ağacından alınır; tabloda olmayan ajan 'varsayilan' kurallarını alır. Alan adları alt alanları da kapsar (ör. 'pinterest.com' → tr.pinterest.com). 'your-shop.example.com' yer tutucusunu kendi mağaza alan adınızla değiştirin; mağaza platformunuz İkas değilse 'magaza' grubunu kendi panel alan adlarınızla doldurun.",
+  "site_gruplari": {
+    "flow": [
+      "labs.google",
+      "flow.google.com"
+    ],
+    "canva": [
+      "canva.com",
+      "canva.ai"
+    ],
+    "pinterest": [
+      "pinterest.com"
+    ],
+    "instagram": [
+      "instagram.com"
+    ],
+    "arastirma": [
+      "trendyol.com",
+      "hepsiburada.com",
+      "n11.com",
+      "amazon.com.tr",
+      "amazon.com",
+      "etsy.com",
+      "ebay.com",
+      "pinterest.com",
+      "printables.com",
+      "makerworld.com",
+      "thingiverse.com",
+      "cults3d.com",
+      "myminifactory.com",
+      "youtube.com",
+      "google.com",
+      "google.com.tr",
+      "bing.com",
+      "duckduckgo.com",
+      "idefix.com",
+      "ciceksepeti.com",
+      "temu.com",
+      "aliexpress.com",
+      "instagram.com",
+      "tiktok.com",
+      "your-shop.example.com"
+    ],
+    "magaza": [
+      "myikas.com",
+      "ikas.com",
+      "ikasapps.com",
+      "your-shop.example.com"
+    ]
+  },
+  "her_zaman_yasak_siteler": [
+    "mail.google.com",
+    "accounts.google.com",
+    "myaccount.google.com",
+    "passwords.google.com",
+    "drive.google.com",
+    "docs.google.com",
+    "pay.google.com",
+    "payments.google.com",
+    "console.cloud.google.com",
+    "aistudio.google.com",
+    "claude.ai",
+    "console.anthropic.com",
+    "platform.openai.com",
+    "github.com",
+    "paypal.com",
+    "papara.com",
+    "iyzico.com",
+    "stripe.com",
+    "ziraatbank.com.tr",
+    "garantibbva.com.tr",
+    "isbank.com.tr",
+    "akbank.com",
+    "yapikredi.com.tr",
+    "qnb.com.tr",
+    "denizbank.com",
+    "vakifbank.com.tr",
+    "halkbank.com.tr",
+    "enpara.com",
+    "turkiye.gov.tr",
+    "e-devlet.gov.tr",
+    "gib.gov.tr",
+    "business.facebook.com"
+  ],
+  "dis_mcp_eylemleri": [
+    "Gmail__(send|reply|forward|create_draft|update_draft|delete|trash|label|unlabel|mark|apply|create_label|update_label|delete_label)",
+    "Google_Drive__(create|update|copy|share|trash)",
+    "Google_Calendar__(create|update|delete|respond)",
+    "buzzfy__(ig_publish|ig_send_dm|ig_reply_comment|ig_comment_actions|ig_schedule_change|ig_trial_reels_change|ig_automations$|ig_media_upload|social_post|social_schedule)",
+    "Figma__(use_figma|create|upload|send|add_code|update)",
+    "shopify__",
+    "Claude_Docs__(create|update|delete|batch)",
+    "Canva__(comment|reply|publish|move|create-folder|delete)",
+    "Goodnotes__",
+    "workbench-erp__(add_|bulk_|create_|filament_alimi|malzeme_alimi|malzeme_grubu|emir_|uretim_|fire_kaydet|kargo_|kategori_ekle|makine_guncelle|ayar_guncelle|b2b_iskonto|musteri_onayi|ozel_emir|urun_gcode|urun_numune)"
+  ],
+  "varsayilan": {
+    "chrome": false,
+    "chrome_siteleri": [],
+    "izinli_mcp": [],
+    "dis_icerik": false,
+    "kod_yazabilir": false,
+    "sandbox": false
+  },
+  "ajanlar": {
+    "cmo-store-director": {
+      "chrome": true,
+      "chrome_siteleri": [
+        "@magaza",
+        "@flow",
+        "@canva",
+        "@pinterest"
+      ],
+      "izinli_mcp": [
+        "Canva__"
+      ]
+    },
+    "seo-copywriter": {
+      "chrome": true,
+      "chrome_siteleri": [
+        "@magaza"
+      ]
+    },
+    "visual-storyteller": {
+      "chrome": true,
+      "chrome_siteleri": [
+        "@flow",
+        "@magaza"
+      ]
+    },
+    "reels-tiktok-strategist": {
+      "chrome": true,
+      "chrome_siteleri": [
+        "@flow",
+        "@instagram"
+      ],
+      "izinli_mcp": [
+        "Google_Calendar__(create|update)"
+      ]
+    },
+    "pinterest-curator": {
+      "chrome": true,
+      "chrome_siteleri": [
+        "@pinterest",
+        "@flow"
+      ]
+    },
+    "brand-guardian": {
+      "chrome": true,
+      "chrome_siteleri": [
+        "@flow",
+        "@magaza",
+        "@pinterest",
+        "@instagram"
+      ]
+    },
+    "trend-researcher": {
+      "chrome": true,
+      "chrome_siteleri": [
+        "@arastirma"
+      ],
+      "dis_icerik": true
+    },
+    "feedback-synthesizer": {
+      "dis_icerik": true
+    },
+    "support-responder": {
+      "dis_icerik": true
+    },
+    "tool-evaluator": {
+      "dis_icerik": true
+    },
+    "legal-compliance-checker": {
+      "dis_icerik": true
+    },
+    "ceo-orchestrator": {
+      "chrome": true,
+      "chrome_siteleri": [
+        "@flow",
+        "@magaza"
+      ],
+      "izinli_mcp": [
+        "workbench-erp__"
+      ],
+      "kod_yazabilir": true
+    },
+    "finance-tracker": {
+      "izinli_mcp": [
+        "workbench-erp__"
+      ]
+    },
+    "slicer-engineer": {
+      "izinli_mcp": [
+        "workbench-erp__(emir_gcode|urun_gcode)"
+      ]
+    },
+    "backend-architect": {
+      "izinli_mcp": [
+        "workbench-erp__"
+      ],
+      "kod_yazabilir": true
+    },
+    "cto-architect": {
+      "izinli_mcp": [
+        "workbench-erp__"
+      ],
+      "kod_yazabilir": true
+    },
+    "infrastructure-maintainer": {
+      "kod_yazabilir": true
+    },
+    "workflow-optimizer": {
+      "kod_yazabilir": true
+    },
+    "cad-artist": {},
+    "mesh-validator": {},
+    "experiment-tracker": {},
+    "kullanim-test-muhendisi": {}
+  },
+  "_sandbox_notu": "Bash OS yalıtımı (config/guvenlik/ajan_sandbox.json) varsayılan KAPALI. Ubuntu 23.10+ AppArmor userns kısıtı bubblewrap'ı engelleyebilir (bkz. docs/security.md). Çalıştığını doğruladıktan sonra varsayilan.sandbox=true yapın."
+}

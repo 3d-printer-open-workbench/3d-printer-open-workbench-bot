@@ -12,12 +12,13 @@ BOLUMLER: dict[str, tuple[str, str]] = {
 Ürün kartındaki adımlar (*▶️ Sıradaki* butonu her zaman bir sonrakini açar):
 1️⃣ *Konsept* — Flow konsept görselleri → sen *seçersin*
 2️⃣ *3B model* — Qwen görünümler → Hunyuan3D → Blender onarım → kalite kapısı
-3️⃣ *Renk* — kartela: tek renk (varyant) / çok renkli tasarım (render ile onay)
-4️⃣ *Dilimleme* — kategori ayarı, gerekirse ağaç destek → 3MF + G-code
-5️⃣ *E-ticaret görselleri* — Qwen stüdyo: beyaz kapak, krem, koyu, katman dokusu
-6️⃣ *Teknik Poster poster + Reels* — ölçü/malzeme bilgili poster (galeri + Pinterest) ve tanıtım Reels
-7️⃣ *Numune + kullanım* (isteğe bağlı) — basılan numunenin fotoğrafından Flow kullanım görselleri + video
-8️⃣ *Görsel onayı* → 9️⃣ *Pazar fiyatı* → 🔟 *Mağaza paketi* (fiyatı *sen seçersin*) → 1️⃣1️⃣ *İkas'a yükle*
+3️⃣ *🧪 Kullanım testi* — ürün vaadini gerçek ölçülü nesneyle dener (kulaklık asılır mı, kol yuvada kalır mı, telefon durur mu): MuJoCo fizik (bırakma, masa eğme, sarsma, ekrana dokunma) + ölçüler (kupa–masa, görüş açısı, kablo boşluğu, devrilme açısı) → pano + GEÇTİ/KALDI → *✅ Onayla* / *✏️ Not ile Güncelle* / *🛠️ Yeniden Tasarla* (Sanatçı ölçülü notu uygular, yeni STL otomatik tekrar test, en fazla 3 tur). Onaysız ürün dilimlemeye/mağazaya geçerken uyarı verilir (engellemez).
+4️⃣ *Renk* — kartela: tek renk (varyant) / çok renkli tasarım (render ile onay)
+5️⃣ *Dilimleme* — kategori ayarı, gerekirse ağaç destek → 3MF + G-code
+6️⃣ *E-ticaret görselleri* — Qwen stüdyo: beyaz kapak, krem, koyu, katman dokusu
+7️⃣ *teknik poster + Reels* — ölçü/malzeme bilgili poster (galeri + Pinterest) ve tanıtım Reels
+8️⃣ *Numune + kullanım* (isteğe bağlı) — basılan numunenin fotoğrafından Flow kullanım görselleri + video
+9️⃣ *Görsel onayı* → 🔟 *Pazar fiyatı* → 1️⃣1️⃣ *Mağaza paketi* (fiyatı *sen seçersin*) → 1️⃣2️⃣ *İkas'a yükle*
 📤 *Yazıcıya Yükle* → baskıyı *sen başlatırsın*; bot ilk katman ve riskli katmanlarda fotoğraf atar
 ⏳ Uzun işler tek bir canlı mesajla görünür: sırada / çalışıyor (adım, süre) / bitti.
 
@@ -67,7 +68,7 @@ _Ajan (yalnız sorun kalırsa): cad-artist_"""),
 
 *⚙️ Dilimle → 3MF* — ürün tipine göre kategori seçer (Figür 0,16 mm · Çerçeve · Harf · Dekor · Standart · Dayanıklı · Hızlı), katman katman analiz eder, havada başlayan parça varsa yalnız tabladan ağaç destek ekler, seçtiğin rengi yazar, tabla önizlemesini gönderir.
 Alttaki kategori butonlarıyla değiştirebilirsin.
-*🎨 Renk (adım 3, kartela)* — paletten en fazla 4 renk seç: *⚪ Tek renk* (birden çok = mağaza varyantı) · *🎨 Çok renkli tasarla* (seçtiğin renkleri YZ parçalara dağıtır) · *🤖 YZ önersin*. Çok renkte Qwen modelin kendi renderlarını parça kodu renkleriyle boyar, renkler parça sınırlarına oturtulur → 4 yön + stüdyo render ile onayına gelir; benzer renkler (ör. kil/ahşap) uyarılır. Onaydan sonra çok filamentli 3MF: filament başına gram, renk değişimi, tek renge göre ek gram/süre. _~8–10 dk_
+*🎨 Renk (adım 4, kartela)* — paletten en fazla 4 renk seç: *⚪ Tek renk* (birden çok = mağaza varyantı) · *🎨 Çok renkli tasarla* (seçtiğin renkleri YZ parçalara dağıtır) · *🤖 YZ önersin*. Çok renkte Qwen modelin kendi renderlarını parça kodu renkleriyle boyar, renkler parça sınırlarına oturtulur → 4 yön + stüdyo render ile onayına gelir; benzer renkler (ör. kil/ahşap) uyarılır. Onaydan sonra çok filamentli 3MF: filament başına gram, renk değişimi, tek renge göre ek gram/süre. _~8–10 dk_
 *🧩 YZ: Bu Ürüne Yeni Kategori* — slicer-engineer ürüne uygun yeni ayar ailesi ekler (yalnız güvenli ayarlar). _~0,5–1 $_
 *🖥️ Orca'da Aç* — bilgisayarda OrcaSlicer'da açar.
 *📤 Yazıcıya Yükle* — G-code'u yazıcı belleğine koyar, *başlatmaz*. Önce kontrol listesi: tabla, renk, stok, malzeme.
@@ -136,6 +137,20 @@ _~1–2 $ (Sonnet modelleme + Opus denetim)_"""),
 
 *🤖 Ajanlarla Konuş* — istediğin ajana doğrudan yaz. `/gorevler` çalışanlar, `/iptal` durdurur, `/devam` kota dolunca kaldığı yerden sürdürür."""),
 
+    "isler": ("📋 Bekleyen İşler & Temizlik", """📋 *Bekleyen İşler ve Temizlik*
+
+*📋 Bekleyen İşler* (`/bekleyen`) — kararını bekleyen her iş tek listede: konsept seçimi, çok renk onayı, e-ticaret ve içerik onayı, fiyat seçimi, İkas'a yüklenmemiş onaylı ürün, paylaşılmamış Pinterest pini, Reels denetimi, dilimleme önerisi. Bir işe dokun → kısa özet + *✅ Onayla* · *✏️ Not ile Güncelle* · *🔁 Yeniden Üret* · *📦 Ürün Kartı*.
+
+*✏️ Not ile Güncelle* — konsept, teknik poster/Reels, HyperFrames Reels, çok renk, renk render'ı, Pinterest pini ve mağaza paketi sonuçlarında da var. Notun ilgili ajanın istemine eklenir, iş yeniden başlar; not tarihiyle ürünün `urun.yaml` dosyasına (revize notları) yazılır.
+
+*🗑️ Ürün Sil* (📦 Ürünlerim altında) — yalnız satışta olmayan ve içeriği onaylanmamış ürünler. Seç → özet (ad, boyut) → *Evet, sil*. Klasör çöp kutusuna taşınır, oradan geri alınır. ERP kaydı silinmez (uyarı gelir).
+
+*🧹 Klasör Temizliği* (`/temizlik`) — önce yalnız tarar, kategori başına dosya sayısı ve boyut gösterir:
+• arşivlenen ürünlerin ara dosyaları (Hunyuan/ComfyUI ara çıktıları, çok renk ara mesh'leri, sanal test)
+• onaylanmamış/reddedilmiş görseller (Qwen aday kareleri, eski poster/kullanım görselleri, reddedilen videolar, seçilmeyen konseptler)
+• Video Atölyesi: ürüne kopyalanmış render'lar, `node_modules` ve önbellek
+Kategorileri seç → özet → *Evet, çöpe taşı*. Korunanlar: `urun.yaml`, son STL/3MF/G-code, onaylı/seçili görseller, mağaza klasörü. Emin olunamayan dosya listeye girmez; çalışan işin ürünü taranmaz."""),
+
     "komut": ("⌨️ Komutlar", """⌨️ *Komutlar*
 
 `/menu` ana menü · `/kilavuz` bu kılavuz
@@ -143,6 +158,7 @@ _~1–2 $ (Sonnet modelleme + Opus denetim)_"""),
 `/fikir <sku> revize: <not>` konsepti yeniden üret
 `/konsept` konsept kütüphanesi (yeni stil eklemek için başlık + istem yapıştır)
 `/urunler` ürün kartları · `/ozet` tüm hat özeti
+`/bekleyen` bekleyen işler (onay / not / yeniden üret) · `/temizlik` klasör temizliği · `/guvenlik_testi` yerel saldırı testi
 `/durum` yazıcı + kamera · `/stok` · `/kuyruk`
 `/gorevler` · `/iptal` · `/devam` · `/bakim` makine bakımı · `/oneriler` bekleyen ayar önerileri
 

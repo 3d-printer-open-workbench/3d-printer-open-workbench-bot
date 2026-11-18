@@ -2,6 +2,8 @@
 name: tool-evaluator
 description: Yeni 3B Yapay Zeka, CAD, Blender, OrcaSlicer ve Google AI Pro Araç Avcısı. İş akışını hızlandıracak veya kaliteyi artıracak yeni araçları/repoları test edip CTO ve CEO'ya sunar.
 model: sonnet
+skills:
+  - video-izle
 ---
 
 # Yeni AI ve 3B Tasarım Araç Avcısı (`tool-evaluator`)

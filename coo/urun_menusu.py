@@ -107,11 +107,23 @@ def adimlar(sku: str, urunler_klasoru: Path | None = None) -> list[dict[str, Any
     gram = f"{d['gram']} g" if d["gram"] else ""
     sure = f"{int(d['sure_dk']) // 60} sa {int(d['sure_dk']) % 60} dk" if d["sure_dk"] else ""
     pz = d["pazar"]
-    return [
+    from .kullanim_testi_hatti import durum as kt_durum
+
+    kt = kt_durum(sku, urunler_klasoru)
+    if kt["onayli"]:
+        kt_ayr = f"onaylandı ({kt['durum']})"
+    elif kt["var"]:
+        kt_ayr = f"{kt['durum']} · onay bekliyor" + (f" · tur {kt['tur']}" if kt["tur"] else "")
+    else:
+        kt_ayr = "vaat ettiği kullanımı fizik motoruyla dene"
+    adim_listesi = [
         {"no": 1, "ad": "Konsept", "tamam": bool(d["konsept"]) or d["stl"], "ayrinti": f"{len(d['konsept'])} görsel",
          "buton": f"fikir:goster:{sku}"},
         {"no": 2, "ad": "3B model", "tamam": d["stl"], "ayrinti": "konsept seç → 3B üret" if not d["stl"] else "hazır",
          "buton": f"fikir:goster:{sku}"},
+        # dilimlenmiş (sistemden önceki) ürünlerde akışı kesmez; dilimleme/mağazaya geçişte uyarı verilir
+        {"no": 3, "ad": "🧪 Kullanım testi", "tamam": kt["onayli"], "ayrinti": kt_ayr, "istege_bagli": d["proje_3mf"],
+         "buton": f"kt:goster:{sku}" if kt["var"] else f"kt:baslat:{sku}"},
         {"no": 3, "ad": "Renk", "tamam": renk_tamam, "ayrinti": renk_ayr, "buton": f"kartela:ac:{sku}"},
         {"no": 4, "ad": "Dilimleme (3MF)", "tamam": d["proje_3mf"], "ayrinti": " · ".join(x for x in (gram, sure) if x),
          "buton": f"orca:analiz:{sku}"},
@@ -134,6 +146,9 @@ def adimlar(sku: str, urunler_klasoru: Path | None = None) -> list[dict[str, Any
         {"no": 10, "ad": "Mağaza paketi", "tamam": d["paket"], "ayrinti": "", "buton": f"magaza:hazirla:{sku}"},
         {"no": 11, "ad": "İkas'a yükle", "tamam": d["yuklendi"], "ayrinti": d["urun_linki"] or "", "buton": f"magaza:yukle:{sku}"},
     ]
+    for i, a in enumerate(adim_listesi):  # 3B modelden sonra kullanım testi girdiği için sıra yeniden numaralanır
+        a["no"] = i + 1
+    return adim_listesi
 
 
 def sonraki_adim(sku: str, urunler_klasoru: Path | None = None) -> dict[str, Any] | None:
@@ -177,12 +192,13 @@ def urun_karti(sku: str, urunler_klasoru: Path | None = None,
         butonlar.append([_b("🔄 Durumu Yenile", f"urunmenu:{sku}")])
     # tüm adımlara doğrudan erişim (yeniden yapmak / atlamak için)
     erisim = [_b(("✅ " if a["tamam"] else "") + f"{a['no']}. {a['ad']}"[:24], a["buton"]) for a in ad_list
-              if a["no"] >= 2 and (d["stl"] or a["no"] <= 2) and not (a["no"] == 11 and a["tamam"])]  # yüklü: çift ilan olmasın
+              if a["no"] >= 2 and (d["stl"] or a["no"] <= 2)
+              and not (a["buton"].startswith("magaza:yukle:") and a["tamam"])]  # yüklü: çift ilan olmasın
     butonlar += [erisim[i:i + 2] for i in range(0, len(erisim), 2)]
     if d["studyo"] and not d["numune"]:  # Patron seçeneği: numune beklemeden, stüdyo karesinden kullanım görseli
         butonlar.append([_b("🏡 Numunesiz Kullanım Görseli (stüdyo karesinden)", f"icerik:kullanimq:{sku}")])
     if d["teknik_poster"] or d["kullanim"] or d["studyo"]:
-        butonlar.append([_b("📌 Pinterest'e Gönder", f"pin:hazirla:{sku}")])
+        butonlar.append([_b("📌 Pinterest'e Gönder", f"pin:hazirla:{sku}"), _b("🎞️ HyperFrames Reels", f"hf:urun:{sku}")])
     if d["proje_3mf"]:
         butonlar.append([_b("📤 Yazıcıya Yükle (başlatmaz)", f"yazici:yukle:{sku}"), _b("🖥️ Orca'da Aç", f"orca:ac:{sku}")])
     butonlar.append([_b("⬅️ Ürünlerim", "menu:urunler"), _b("🗄️ Arşivle", f"fikir:iptal:{sku}")])

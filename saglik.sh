@@ -34,6 +34,8 @@ istege "OrcaSlicer" "$PY" -c "from coo.orca_dilim import ORCA_BIN; import os; as
 istege "Blender" bash -c "blender --version 2>/dev/null | head -1 | grep ."
 istege "env ai3d (Hunyuan3D)" "$O/.venv-ai3d/bin/python" -c "import hy3dgen, torch; print('cuda' if torch.cuda.is_available() else 'cpu')"
 istege "env cad (build123d)" "$O/.venv-cad/bin/python" -c "import build123d, trimesh; print('ok')"
+istege "usage test (MuJoCo/CoACD/fcl)" env MUJOCO_GL=egl "$O/.venv-cad/bin/python" -c "import mujoco, coacd, fcl, shapely; m=mujoco.MjModel.from_xml_string('<mujoco/>'); mujoco.Renderer(m, 8, 8); print('mujoco', mujoco.__version__, '· EGL ok')"
+istege "env video (yt-dlp/whisper)" "$O/.venv-video/bin/python" -c "import yt_dlp, faster_whisper; print('ok')"
 istege "ComfyUI" "$YZ/ComfyUI/.venv/bin/python" -c "import torch; print('ok')"
 kontrol "Agent models" "$PY" -c "from coo.__main__ import AJAN_MODELLERI as A; print(sum(v=='opus' for v in A.values()),'opus /',sum(v=='sonnet' for v in A.values()),'sonnet')"
 if [[ "${1:-}" == "--test" ]]; then

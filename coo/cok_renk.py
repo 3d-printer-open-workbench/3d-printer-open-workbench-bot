@@ -358,6 +358,139 @@ def temizle(mesh, etiket: np.ndarray, k: int, min_alan_mm2: float) -> np.ndarray
     return et
 
 
+def sinir_yumusat(mesh, etiket: np.ndarray, k: int, yaricap_mm: float = 2.0, tur: int = 6) -> np.ndarray:
+    """Dişli/yırtık renk sınırını düzleştirir: sınıra yakın her yüz, `yaricap_mm` içindeki yüzlerin alan ×
+    normal-uyumu ağırlıklı çoğunluğunu alır (ince boşluğun karşı yüzeyi, ters normal → oy vermez). Sınır, mesh
+    üçgenlerinin tırtığı yerine düzgün bir eğriye oturur; ana parçalar değişmez."""
+    import scipy.sparse as sp
+    from scipy.spatial import cKDTree
+
+    komsu = _komsular(mesh)
+    c = mesh.triangles_center
+    nrm = mesh.face_normals
+    alan = mesh.area_faces
+    agac = cKDTree(c)
+    et = etiket.copy()
+    for _ in range(tur):
+        a = komsu.tocoo()
+        sinir = np.zeros(len(et), bool)
+        sinir[a.row[et[a.row] != et[a.col]]] = True
+        if not sinir.any():
+            break
+        aday = np.unique(np.concatenate(agac.query_ball_point(c[sinir], yaricap_mm)).astype(np.int64))
+        komsular = agac.query_ball_point(c[aday], yaricap_mm)
+        sat = np.repeat(np.arange(len(aday)), [len(x) for x in komsular])
+        sut = np.concatenate(komsular).astype(np.int64)
+        w = alan[sut] * np.clip((nrm[aday[sat]] * nrm[sut]).sum(1), 0.0, None)
+        oy = sp.coo_matrix((w, (sat, et[sut])), shape=(len(aday), k)).toarray()
+        yeni = et.copy()
+        yeni[aday] = np.argmax(oy, axis=1)
+        if (yeni == et).all():
+            break
+        et = yeni
+    return et
+
+
+# --- baskı kolaylığı: katman başına renk sayısı --------------------------------------------------------------
+def katman_renkleri(mesh, etiket: np.ndarray, katman_mm: float = 0.2) -> list[list[int]]:
+    """Her dilim katmanını (z düzlemi) kesen yüzlerin renk kümeleri (alanı büyükten küçüğe)."""
+    z = mesh.vertices[mesh.faces][:, :, 2]
+    zmin, zmax = z.min(1), z.max(1)
+    alan = mesh.area_faces
+    lo, hi = float(mesh.bounds[0, 2]), float(mesh.bounds[1, 2])
+    sonuc = []
+    for zz in np.arange(lo + katman_mm / 2, hi, katman_mm):
+        s = (zmin <= zz) & (zmax >= zz)
+        a = np.bincount(etiket[s], weights=alan[s], minlength=int(etiket.max()) + 1 if len(etiket) else 1)
+        sonuc.append([int(i) for i in np.argsort(-a) if a[i] > 0])
+    return sonuc
+
+
+def renk_degisimi_tahmini(mesh, etiket: np.ndarray, katman_mm: float = 0.2) -> int:
+    """Orca'nın filament değişim sayısı tahmini: her katmanda (renk sayısı − 1), önceki katmanın son rengiyle
+    başlanır (Orca sıralaması). örnek ürün: tahmin 158, gerçek dilim 156."""
+    deg, son = 0, None
+    for renkler in katman_renkleri(mesh, etiket, katman_mm):
+        if not renkler:
+            continue
+        if son in renkler:
+            renkler = [son] + [r for r in renkler if r != son]
+        elif son is not None:
+            deg += 1
+        deg += len(renkler) - 1
+        son = renkler[-1]
+    return deg
+
+
+def _doldur_haric(etiket: np.ndarray, komsu, k: int, haric: int) -> np.ndarray:
+    """-1 yüzleri komşu çoğunluğuyla doldurur ama `haric` rengini vermez (kırpılan uç geri büyümesin)."""
+    et = etiket.copy()
+    for _ in range(400):
+        bos = et < 0
+        if not bos.any():
+            break
+        tek = np.zeros((len(et), k))
+        dolu = np.nonzero(~bos)[0]
+        tek[dolu, et[dolu]] = 1
+        say = komsu @ tek
+        say[:, haric] = 0
+        aday = bos & (say.sum(1) > 0)
+        if not aday.any():
+            break
+        et[aday] = np.argmax(say[aday], axis=1)
+    if (et < 0).any():  # yalnız `haric` renge komşu kalan kopuk uç: kırpma geri alınır
+        et[et < 0] = haric
+    return et
+
+
+def uc_kirp(mesh, etiket: np.ndarray, k: int, bant_mm: float = 1.0, esik_mm2: float = 15.0, oran: float = 0.05,
+            maks_pay: float = 0.03) -> tuple[np.ndarray, list[dict]]:
+    """Baskı kolaylığı (Patron 2026-11-18: "renk değişimi minimumda, boyama bozulmasın").
+
+    Bir rengin z aralığının ALT/ÜST ucundaki ince kuyrukları (kayan sınır şeridi, yanak içindeki şerit, kaskın
+    bir milim sarkan kenarı) komşu renge verir: o renk bu katmanlarda hiç olmaz → her katmanda bir filament
+    değişimi eksilir. Yalnız uçlar kırpılır (ana parçalar ve ortadaki ayrıntılar dokunulmaz); bant alanı hem
+    `esik_mm2`'den hem rengin en dolu bandının `oran`ından küçük olmalı, rengin toplam alanının en fazla
+    `maks_pay`'ı kırpılır ve yalnız başka rengin de bulunduğu bantlar kırpılır (tek renkli katman zaten ücretsiz)."""
+    komsu = _komsular(mesh)
+    alan = mesh.area_faces
+    zc = mesh.triangles_center[:, 2]
+    lo = float(mesh.bounds[0, 2])
+    bant = np.floor((zc - lo) / bant_mm).astype(np.int64)
+    nb = int(bant.max()) + 1
+    et = etiket.copy()
+    kayit: list[dict] = []
+    for _ in range(2):
+        degisti = False
+        for r in range(k):
+            sec = et == r
+            if not sec.any():
+                continue
+            a_r = np.bincount(bant[sec], weights=alan[sec], minlength=nb)
+            a_hepsi = np.bincount(bant, weights=alan, minlength=nb)
+            dolu = np.nonzero(a_r > 0)[0]
+            sinir = min(esik_mm2, oran * float(a_r.max()))
+            butce = maks_pay * float(a_r.sum())
+            kirp = np.zeros(nb, bool)
+            for yon in (dolu[::-1], dolu):           # önce üst uç, sonra alt uç
+                for b in yon:
+                    if a_r[b] >= sinir or a_hepsi[b] - a_r[b] <= 0 or a_r[kirp].sum() + a_r[b] > butce:
+                        break
+                    kirp[b] = True
+            if not kirp.any() or kirp[dolu].all():
+                continue
+            hedef = sec & kirp[bant]
+            yeni = _doldur_haric(np.where(hedef, -1, et), komsu, k, r)
+            if (yeni[hedef] != r).any():
+                z_k = zc[hedef & (yeni != r)]
+                kayit.append({"renk": r, "alan_mm2": round(float(alan[hedef & (yeni != r)].sum()), 1),
+                              "z_mm": [round(float(z_k.min()), 1), round(float(z_k.max()), 1)]})
+                et, degisti = yeni, True
+        if not degisti:
+            break
+    return et, kayit
+
+
 # --- çıktılar -----------------------------------------------------------------------------------------------
 def boyali_3mf(mesh, etiket: np.ndarray, hedef: Path) -> Path:
     v = "".join(f'<vertex x="{x:.4f}" y="{y:.4f}" z="{z:.4f}"/>' for x, y, z in mesh.vertices)

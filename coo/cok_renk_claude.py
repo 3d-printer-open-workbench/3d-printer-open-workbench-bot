@@ -31,7 +31,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from .ayar import COO_KLASORU, URUNLER_KLASORU
-from .cok_renk import _eksenler, _izdus, _komsular, _yay, boyali_3mf, kesin_esle, rastgele_yuruyus, temizle
+from .cok_renk import (_eksenler, _izdus, _komsular, _yay, boyali_3mf, kesin_esle, rastgele_yuruyus, renk_degisimi_tahmini,
+                       sinir_yumusat, temizle, uc_kirp)
 
 GORUSLER = ("on", "sag", "arka", "sol", "on_alt", "arka_alt")
 GORUS_ADI = {"on": "ön", "sag": "sağ", "arka": "arka", "sol": "sol", "on_alt": "ön-alttan", "arka_alt": "arka-alttan"}
@@ -226,7 +227,7 @@ def kurallari_uygula(etiket_parca: np.ndarray, merkez: np.ndarray, kurallar: lis
 
 
 def boya(sku: str, renkler: list[str], kurallar: list[dict], varsayilan: int = 0, min_alan_mm2: float = 25.0,
-         studyo: bool = True, kesin: bool = False) -> dict:
+         studyo: bool = True, kesin: bool = False, sadelestir: bool = True) -> dict:
     k = klasor(sku)
     p_yol = k / "parcalar.npz"
     if not p_yol.exists():
@@ -242,17 +243,29 @@ def boya(sku: str, renkler: list[str], kurallar: list[dict], varsayilan: int = 0
     else:
         # sınır iyileştirme: renk sınırına 3 halka yakın yüzler bilinmiyor sayılır, random walker kıvrım ağırlıklı
         # grafikte (iç bükey kenarlar zayıf bağ) bunları doldurur → sınır en yakın gerçek parça çizgisine oturur
+        # Eksen kesimi (aynı bölge içinde z/x/y sınırı, ör. taban z=20.5) düz kalır: yürüyüş yalnız bölge
+        # sınırlarında çalışır, yoksa düz kesim tırtıklanır ve sınır katmanlara yayılır (fazla renk değişimi).
         komsu = _komsular(mesh)
         tohum = kaba.copy()
-        sinir = np.zeros(len(kaba), bool)
         a = komsu.tocoo()
         farkli = kaba[a.row] != kaba[a.col]
-        sinir[a.row[farkli]] = True
+        bolge = farkli & (parca[a.row] != parca[a.col])
+        sinir = np.zeros(len(kaba), bool)
+        sinir[a.row[bolge]] = True
         for _ in range(3):
             sinir = sinir | (komsu @ sinir.astype(float) > 0)
-        tohum[sinir] = -1
+        eksen = np.zeros(len(kaba), bool)
+        eksen[a.row[farkli & ~bolge]] = True
+        eksen = eksen | (komsu @ eksen.astype(float) > 0)
+        tohum[sinir & ~eksen] = -1
         et = rastgele_yuruyus(mesh, tohum, len(renkler))
     et = temizle(mesh, et, len(renkler), min_alan_mm2)
+    if not kesin:
+        et = sinir_yumusat(mesh, et, len(renkler))  # dişli/yırtık sınır → düzgün eğri (yüz–kask gibi kıvrımsız sınırlar)
+    degisim_once = renk_degisimi_tahmini(mesh, et)
+    kirpilan: list[dict] = []
+    if sadelestir:
+        et, kirpilan = uc_kirp(mesh, et, len(renkler))
     np.savez_compressed(k / "etiket.npz", merkez=mesh.triangles_center.astype(np.float32), etiket=et.astype(np.int8),
                         renkler=np.array(renkler), kutu=mesh.bounds.astype(np.float32))
     mesh.export(k / "renkli.stl")
@@ -268,7 +281,8 @@ def boya(sku: str, renkler: list[str], kurallar: list[dict], varsayilan: int = 0
     alan = mesh.area_faces
     paylar = [round(float(alan[et == i].sum() / alan.sum() * 100), 1) for i in range(len(renkler))]
     rapor = {"basarili": True, "yontem": "claude-blender", "renkler": renkler, "alan_yuzde": paylar, "kurallar": kurallar,
-             "varsayilan": varsayilan, "pano": str(pano), "renkli_3mf": str(k / "renkli.3mf"),
+             "varsayilan": varsayilan, "renk_degisimi_tahmini": renk_degisimi_tahmini(mesh, et),
+             "renk_degisimi_sadelestirmeden": degisim_once, "uc_kirpma": kirpilan, "pano": str(pano), "renkli_3mf": str(k / "renkli.3mf"),
              "studyo": str(k / "render" / "studyo.png") if (k / "render" / "studyo.png").exists() else None,
              "uyarilar": [f"{renkler[i]} neredeyse hiç kullanılmıyor (%{p})" for i, p in enumerate(paylar) if p < 0.5]}
     (k / "rapor.json").write_text(json.dumps(rapor, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -288,12 +302,15 @@ def main() -> None:
     p2.add_argument("--varsayilan", type=int, default=0, help="kurala girmeyen yüzlerin renk indeksi")
     p2.add_argument("--studyo-yok", action="store_true", help="stüdyo render alma (hızlı deneme)")
     p2.add_argument("--kesin", action="store_true", help="sınırı kıvrıma oturtma; kuralları birebir uygula (eksen kesimleri için)")
+    p2.add_argument("--sadelestirme-yok", action="store_true",
+                    help="renk uçlarını kırpma (varsayılan: ince uç şeritler komşu renge verilir → az renk değişimi)")
     a = ap.parse_args()
     if a.komut == "parcala":
         print(json.dumps(parcala(a.sku, a.hedef), ensure_ascii=False))
     else:
         metin = Path(a.kurallar).read_text(encoding="utf-8") if Path(a.kurallar).exists() else a.kurallar
-        print(json.dumps(boya(a.sku, a.renkler.split(","), json.loads(metin), a.varsayilan, studyo=not a.studyo_yok, kesin=a.kesin),
+        print(json.dumps(boya(a.sku, a.renkler.split(","), json.loads(metin), a.varsayilan, studyo=not a.studyo_yok, kesin=a.kesin,
+                              sadelestir=not a.sadelestirme_yok),
                          ensure_ascii=False))
 
 

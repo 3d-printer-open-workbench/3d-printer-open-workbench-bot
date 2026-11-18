@@ -94,7 +94,7 @@ def pazar_basliklari(sku: str, urunler_klasoru: Path | None = None, en_fazla: in
     return [f"{o['ad']} ({o.get('platform', '?')})" for o in ornekler[:en_fazla]]
 
 
-def hazirla_istemi(sku: str, fire_yuzde: float, urunler_klasoru: Path | None = None) -> str:
+def hazirla_istemi(sku: str, fire_yuzde: float, urunler_klasoru: Path | None = None, not_: str = "") -> str:
     gorseller = mevcut_gorseller(sku, urunler_klasoru)
     basliklar = pazar_basliklari(sku, urunler_klasoru)
     seo_satiri = (
@@ -110,13 +110,15 @@ def hazirla_istemi(sku: str, fire_yuzde: float, urunler_klasoru: Path | None = N
     varyantlar = renk_varyantlari(sku, urunler_klasoru)
     varyant_satiri = (
         f"   VARYANTLAR: `varyantlar` alanına BİREBİR şunu yaz: {json.dumps(varyantlar, ensure_ascii=False)} "
-        "(hepsi aynı fiyat). Açıklamada renk seçeneklerini adlarıyla an; renk görselleri render olduğu için "
-        "'gerçek renk filament partisine göre hafif farklılık gösterebilir' notu ekle.\n"
+        "(hepsi aynı fiyat). Açıklamada renk seçeneklerini adlarıyla bir kez an (tabloda 'Renk' satırı yeter).\n"
         if varyantlar else "   VARYANTLAR: renk varyantı yok → `varyantlar: []`.\n"
     )
     return (
         f"Görev: `{sku}` ürününü İkas mağazasına yüklenmeye hazır pakete dönüştür. YÜKLEME YAPMA.\n"
-        f"Kaynak: `02_Urunler/{sku}/urun.yaml` (ölçüler, gram, süre, `gcode_yolu`, filament).\n\n"
+        f"Kaynak: `02_Urunler/{sku}/urun.yaml` (ölçüler, gram, süre, `gcode_yolu`, filament).\n"
+        + (f"PATRON NOTU (öncelikli — önceki pakete göre düzeltme; ERP fiyat tabanı ve metin rehberi kuralları yine "
+           f"geçerli): {not_.strip()}\n" if not_.strip() else "")
+        + "\n"
         "1) MALİYET/FİYAT (workbench-erp MCP — ASLA tahmin etme):\n"
         "   a) `get_erp_inventory_summary` ile ambalaj/kutu/koruyucu malzemelerini bul; ürün ölçüsüne uyan "
         "kalemleri seç ve birim fiyatlarının toplamını `ek_malzeme_tl` yap. Uygun kayıt yoksa DUR ve son satıra "
@@ -126,17 +128,20 @@ def hazirla_istemi(sku: str, fire_yuzde: float, urunler_klasoru: Path | None = N
         f"   c) `gcode_maliyet(gcode_yolu=<mutlak yol>, fire_yuzde={fire_yuzde}, ek_malzeme_tl=<a>, "
         "filament_id=<b>, kargo_tl=0)` — kargo fiyata DAHİL DEĞİL. Önerilen satış fiyatını ve maliyet dökümünü al.\n"
         "   d) Fiyatı psikolojik olarak yukarı yuvarla (ör. 437 → 449,90); ERP önerisinin altına İNME.\n"
-        "2) METİN (Türkçe, Trendyol/İkas dilinde, abartısız): başlık (≤90 karakter, ana anahtar kelime başta), "
-        "aciklama_html (kısa hikâye paragrafı, <ul> 5 avantaj, ölçü/malzeme teknik tablosu, bakım notu, "
-        "'Kargo ücreti ayrıca hesaplanır' notu), meta_baslik (≤60), meta_aciklama (≤155), slug, 8-12 etiket.\n"
+        "2) METİN: önce `config/marka/magaza-metin-rehberi.md` dosyasını oku ve BİREBİR uygula — kısa, insan "
+        "sesiyle, profesyonel; tablo hariç 50–130 kelime, 3–4 düz madde ('Kalın etiket:' kalıbı yok), ≤5 satır "
+        "tablo, tek son not (bakım + ısı + üretim/kargo). Başlık ≤70 karakter, en fazla bir ayraç; meta_baslik "
+        "(≤60), meta_aciklama (≤155), slug, 8-12 etiket. Her bilgi bir kez geçer. Yazdıktan sonra "
+        f"`python3 -m coo.metin_denetim {sku}` ile kontrol et ve hataları düzelt (review ayrı bir editör "
+        "adımıdır, `--review` VERME).\n"
         + seo_satiri +
         "   DOĞRULUK: Her iddia urun.yaml veya ERP verisine dayanmalı. 'El yapımı', 'bitkisel bazlı', 'su "
         "geçirmez', 'her parça kalite kontrolden geçer' gibi doğrulanmamış iddialar YAZMA. Malzeme: PLA. "
         "Saksıysa: drenaj deliği varsa belirt; PLA'nın doğrudan güneş/55°C üstü ısıda deforme olabileceğini yaz.\n"
         f"3) GÖRSELLER: bu sırayı kullan (yalnızca var olanlar): {json.dumps(gorseller, ensure_ascii=False)}. "
         + varyant_satiri +
-        "   Listede `numune-` ile başlayan gerçek fotoğraf yoksa açıklamanın sonuna şu notu ekle: 'Stüdyo "
-        "görselleri 3B modelden üretilmiştir; ürün siparişe özel basılır.' (Bu bir engel DEĞİL, uyarı yazma.)\n"
+        "   Listede `numune-` ile başlayan gerçek fotoğraf yoksa son nota şu cümleyi ekle: 'Görseller 3B "
+        "modelden hazırlanmıştır, renk tonu filamente göre hafif değişebilir.' (Bu bir engel DEĞİL, uyarı yazma.)\n"
         f"4) `02_Urunler/{sku}/magaza/paket.json` dosyasını şu anahtarlarla yaz: "
         '{"sku","baslik","aciklama_html","satis_fiyati_tl","indirimli_fiyat_tl":null,"kategori",'
         '"etiketler":[],"slug","meta_baslik","meta_aciklama","gorseller":[göreli yollar],'
@@ -207,6 +212,11 @@ def onizleme_metni(paket: dict[str, Any]) -> str:
         satirlar.append(f"• {karar.get('gerekce', '')}")
         if karar.get("secim") == "PATRON":
             satirlar.append(f"• ✅ Senin seçimin: `{karar.get('secilen_tl')} TL`")
+    rv = paket.get("metin_review") or {}
+    if rv:
+        satirlar.append(f"• *Metin:* editör review'u ✅ ({rv.get('kelime')} kelime, {rv.get('tarih')})")
+    else:
+        satirlar.append("• *Metin:* ⚠️ editör review'u yok — yüklenemez")
     for u in paket.get("uyarilar") or []:
         satirlar.append(f"⚠️ {u}")
     satirlar.append("\nFiyatı aşağıdan seç (✅ = geçerli fiyat), sonra *🚀 Mağazaya Yükle* — ürün İkas'ta "

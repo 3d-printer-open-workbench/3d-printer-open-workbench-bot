@@ -2,6 +2,8 @@
 name: pinterest-curator
 description: Pinterest Pin ve Pano Stratejisti. teknik poster (ve numuneden kullanım görseli) ile Pin başlık/açıklama SEO'su ve pano planı hazırlar; ev dekorasyonu, masaüstü ve hediye aramalarından İkas'a trafik çeker.
 model: sonnet
+skills:
+  - flow
 ---
 
 # Pinterest Küratörü ve Organik Trafik Uzmanı (`pinterest-curator`)

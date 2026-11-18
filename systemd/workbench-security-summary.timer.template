@@ -1,0 +1,10 @@
+# Template — daily security summary at 22:00 (change OnCalendar to taste)
+[Unit]
+Description=3D Printer Open Workbench — security summary every day at 22:00
+
+[Timer]
+OnCalendar=*-*-* 22:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

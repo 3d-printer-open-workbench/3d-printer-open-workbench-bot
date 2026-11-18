@@ -1,0 +1,65 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "filesystem": {
+      "denyRead": [
+        "@ROOT@/.env",
+        "@ROOT@/coo/.env",
+        "~/.ssh",
+        "~/.gnupg",
+        "~/.claude/.credentials.json",
+        "~/.config/gh",
+        "~/.postiz",
+        "~/.git-credentials",
+        "~/.netrc",
+        "~/.docker",
+        "~/.local/share/keyrings",
+        "~/.config/google-chrome",
+        "~/.config/chromium",
+        "~/.mozilla"
+      ],
+      "allowWrite": [
+        "@ROOT@",
+        "@DATA@",
+        "~/Downloads",
+        "/tmp"
+      ],
+      "denyWrite": [
+        "@ROOT@/.claude/settings.json",
+        "@ROOT@/.claude/settings.local.json",
+        "@ROOT@/.claude/hooks",
+        "@ROOT@/config/guvenlik",
+        "@ROOT@/coo/loglar/guvenlik"
+      ]
+    },
+    "network": {
+      "allowLocalBinding": true,
+      "allowedDomains": [
+        "localhost",
+        "127.0.0.1",
+        "huggingface.co",
+        "*.huggingface.co",
+        "*.hf.co",
+        "pypi.org",
+        "files.pythonhosted.org",
+        "registry.npmjs.org",
+        "*.canva.com",
+        "canva.com",
+        "*.canva.ai",
+        "*.etsystatic.com",
+        "*.pinimg.com",
+        "*.youtube.com",
+        "*.googlevideo.com",
+        "*.ytimg.com",
+        "*.dsmcdn.com",
+        "*.hepsiburada.net",
+        "*.idefix.com",
+        "www.tcmb.gov.tr",
+        "your-shop.example.com",
+        "*.myikas.com"
+      ]
+    }
+  }
+}

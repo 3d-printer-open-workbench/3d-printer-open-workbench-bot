@@ -31,3 +31,10 @@ Tek rota kaynağı `STUDIO.md` §5'tir:
   `ortamlar/.venv-cad/bin/python -m coo.kalite_kapisi veri/02_Urunler/<sku>/model/<dosya>.stl --mod <b2c|b2b>`
 - `RED` sonucu alırsan (`non-manifold`, `Z=0` dışı taban veya `B2C` kaba/ilkel kutu uyarısı) modeli **teslim etme**; önce pah (`fillet`/`bevel`), ergonomik eğim ve doku detaylarıyla yeniden modelle.
 - Ardından `blender -b -P coo/gorsel/blender_ciz.py -- --stl ... --cikti veri/02_Urunler/<sku>/gorsel --sadece-kare` ile önizleme al ve `model.3mf`, `.stl`, `render_*.png`, `studyo.png` çıktılarını `veri/02_Urunler/<sku>/` altına yerleştir.
+- Kalite kapısından sonra ürün **kullanım testine** girer (`kullanim-test-muhendisi`, bot ürün kartı adım 3).
+
+## Kullanım Testi KALDI Notunu Uygulama
+- Bot "🛠️ Yeniden Tasarla" dediğinde istemde ölçülü revize notu gelir (kaynak: `veri/02_Urunler/<sku>/model/kullanim_testi/<tarih>/rapor.json > duzeltme_onerisi` ve `urun.yaml > kullanim_testi.revize_notu`). Önce rapor.json ve pano.png'yi oku; hangi kuralın hangi nesneyle neden kaldığını anla.
+- Mevcut STL'yi `model/arsiv/<sku>-<tarih>.stl` olarak sakla, düzeltmeyi uygula ve **aynı yola** (`model/<sku>.stl`) yaz. Ürünün konseptini ve görünüşünü koru; yalnız notta yazan ölçüleri değiştir (ör. "tabanı arkaya 27 mm uzat" → taban arka kenarı +27 mm; "alt kenarda 14 × 9 mm kablo kanalı aç").
+- Kalite kapısını yeniden çalıştır (`PASS` şart). Kullanım testini kendin çalıştırma: bot yeni STL ile **otomatik tekrar test** eder; en fazla 3 tur, sonra Patrona sorulur.
+- Son satırda yaptığın değişiklikleri mm/derece olarak tek cümleyle yaz.

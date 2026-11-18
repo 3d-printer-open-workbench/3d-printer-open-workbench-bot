@@ -193,3 +193,28 @@ def aciklamadan_renk_sku(aciklama: str) -> str | None:
     """Fotoğraf açıklaması 'renk <sku>' ise sku'yu döndürür."""
     m = re.match(r"^\s*renk\s+([a-z0-9-]+)\s*$", aciklama or "", flags=re.I)
     return m.group(1).lower() if m else None
+
+
+def renk_revize_istemi(sku: str, not_: str, urunler_klasoru: Path | None = None) -> str:
+    """✏️ Not ile Güncelle (renk/kartela render'ı): Patronun notuyla tek renk Blender render'larını yeniden üretir.
+    Render deterministik Blender betiğidir; ajan notu yalnız izinli ayarlara (paletten renk/HEX, katman, çözünürlük,
+    örnekleme) çevirir ve aynı komutla yeniden çizer."""
+    from .renk_paleti import PALET_DOSYASI
+
+    kok = (urunler_klasoru or URUNLER_KLASORU) / sku
+    renkler = urun_renkleri(sku, urunler_klasoru)
+    liste = "\n".join(f"- {r.get('ad')} `{r.get('hex')}` → `{kok / str(r.get('klasor'))}`" for r in renkler) or "- (renk yok)"
+    komut = (f"cd {PROGRAMLAR_KLASORU} && blender -b -P {BLENDER_BETIK} -- --stl {kok / 'model' / f'{sku}.stl'} "
+             f"--cikti <renk klasörü> --renk <#HEX> --katman-mm {katman_mm(kok)}")
+    return (
+        f"Görev: `{sku}` ürününün tek renk render'larını Patronun notuna göre YENİDEN üret.\n"
+        f"PATRON NOTU (öncelikli): {not_.strip()}\n"
+        f"Mevcut renkler ve klasörleri:\n{liste}\n"
+        f"Renk paleti (Read): `{PALET_DOSYASI}` — yalnız paletteki filamentler; notta açıkça HEX verilmedikçe renk "
+        "uydurma.\n"
+        f"Render komutu (Bash; tek yol bu): `{komut}` — isteğe bağlı `--cozunurluk`, `--ornek`.\n"
+        "Kurallar: ürün geometrisine dokunma; render'ı elle düzenleme/çizme; yalnız komutla yeniden üret, çıktıyı aynı "
+        "renk klasörüne yaz (beyaz.png, studyo.png, yakin.png). Renk/HEX değiştiyse `urun.yaml > renkler` içindeki o "
+        "rengin `ad`/`hex` alanlarını güncelle (klasör adını değiştirme). Sonucu Read ile kontrol et.\n"
+        "Son satır tek satır: `RENK_HAZIR <değişen renkler>` ya da `RENK_HATA <neden>`."
+    )

@@ -2,7 +2,7 @@
 
 > 3D Printer Open Workbench: **Bot + agents** · [ERP](https://github.com/3d-printer-open-workbench/3d-printer-open-workbench-erp) · [Studio](https://github.com/3d-printer-open-workbench/3d-printer-open-workbench-studio)
 
-[Türkçe](README.tr.md) · [Install guide](docs/install.md) · [Kurulum rehberi](docs/kurulum.md) · License: MIT
+[Türkçe](README.tr.md) · [Install guide](docs/install.md) · [Kurulum rehberi](docs/kurulum.md) · [Security](docs/security.md) · License: MIT
 
 A Telegram-run assistant for a small 3D-printing business. You chat with one Telegram bot (the "COO"); behind it,
 a team of [Claude Code](https://docs.claude.com/en/docs/claude-code) agents researches trends, turns an idea into a
@@ -17,14 +17,17 @@ optional ERP. Every step that spends money, publishes something or touches the p
 | Area | What happens | Who does it |
 |---|---|---|
 | Trends & ideas | Live market research (Etsy, marketplaces, Pinterest, Printables/MakerWorld) with source URLs and dates; a visual catalog you pick from | `trend-researcher` (Sonnet) |
-| Product pipeline | Concept → 3D model (CAD / Studio generators / optional AI 3D) → geometry quality gate → colors → slicing (3MF) | `cad-artist`, `mesh-validator`, `slicer-engineer` |
+| Product pipeline | Concept → 3D model (CAD / Studio generators / optional AI 3D) → geometry quality gate → usage test → colors → slicing (3MF) | `cad-artist`, `mesh-validator`, `slicer-engineer` |
+| Usage test | Does the product keep its promise? Real-size reference objects (headphones, game controllers, phones) are dropped onto / tilted / shaken on the model in a physics engine (MuJoCo + CoACD + python-fcl); clearances and tip-over angle are measured. On FAIL a measured revision note goes to the CAD agent (max. 3 automatic rounds) | `kullanim-test-muhendisi`, `cad-artist` |
 | Pricing & stock | BOM, cost, price suggestions, purchases, quotes (PDF) via the ERP | `finance-tracker`, `support-responder` |
-| Store | SEO copy, gallery order, upload checklist; browser upload with Claude in Chrome after your OK | `cmo-store-director`, `seo-copywriter` |
-| Social | Poster with a size/material band printed from real data, Pinterest Pins, Reels/TikTok scripts and edits from real footage | `pinterest-curator`, `reels-tiktok-strategist`, `visual-storyteller` |
+| Store | Short, human store copy checked by a senior-editor review (`coo.metin_denetim`), gallery order, upload checklist; browser upload with Claude in Chrome after your OK | `cmo-store-director`, `seo-copywriter` |
+| Social | Poster with a size/material band printed from real data (optionally from your own Canva template), Pinterest Pins, Reels/TikTok scripts, HyperFrames (HTML → MP4) Reels from real product files, AI review of finished Reels, Reels calendar synced to Google Calendar | `pinterest-curator`, `reels-tiktok-strategist`, `visual-storyteller` |
 | Printer | Read-only status, camera, file upload, optional AI print-failure warning, two-step emergency stop | bot (`coo/yazici.py`, `coo/baski_goz.py`) |
 | Oversight | CEO/CTO/CMO agents (Opus) review Sonnet output before it reaches you | `ceo-orchestrator`, `cto-architect`, `cmo-store-director` |
+| Daily work | `/bekleyen`: every job waiting for your decision in one list (approve / update with a note / regenerate); "✏️ Update with note" on concepts, Reels, colors, pins and store packages; product delete and folder cleanup (`/temizlik`, two-step, to the trash; products on sale cannot be deleted) | bot (`coo/bekleyen_isler.py`, `coo/klasor_temizlik.py`) |
+| Security | PreToolUse security gate (secrets, exfiltration, print start, destructive commands), least-privilege table per agent, secret env vars never passed to agents, external-content quarantine, local red-team test (`/guvenlik_testi`) | `.claude/hooks/`, `coo/karantina.py`, `coo/guvenlik_testi.py` |
 
-21 agents live in [`.claude/agents/`](.claude/agents); the model per agent is set in `coo/__main__.py → AJAN_MODELLERI`.
+22 agents live in [`.claude/agents/`](.claude/agents); the model per agent is set in `coo/__main__.py → AJAN_MODELLERI`.
 
 ## Architecture
 
@@ -51,10 +54,13 @@ Repository layout:
 coo/                 the bot package (python -m coo) and its tests (coo/tests)
 .claude/agents/      agent definitions (Markdown + front matter)
 .claude/commands/    slash commands for interactive Claude Code sessions (/ceo, /cto, /cmo, /ikas-yukle)
+.claude/skills/      skills preloaded into agents (flow, ikas, canva, video-izle)
+.claude/hooks/       security gate (PreToolUse) and daily security summary
 config/              Orca categories & profiles, social/Flow guides, color palette, maintenance plan,
-                     concept library (neutral sample) and brand guide (neutral sample)
-systemd/             user-service template
-docs/                install guides (EN/TR)
+                     concept library (neutral sample) and brand guide (neutral sample),
+                     security tables (config/guvenlik), usage-test objects/templates (config/kullanim_testi)
+systemd/             user-service and security-summary timer templates
+docs/                install, local AI and security guides (EN/TR)
 veri/                your business data — created by install.sh, never committed
 CLAUDE.md            rules every agent reads — rewrite it for your business
 ```
@@ -67,6 +73,10 @@ CLAUDE.md            rules every agent reads — rewrite it for your business
 - Recommended: OrcaSlicer (CLI used for slicing), Blender 4+/5 (previews, color renders), FFmpeg (video edits)
 - Optional: NVIDIA GPU with 12 GB+ VRAM for ComfyUI/Qwen-Image-Edit and Hunyuan3D-2; Google Chrome with the
   Claude in Chrome extension (Google Flow, store upload); a Gemini API key (print-failure watch, free tier)
+- Optional extra Python environments under `ortamlar/` (`WORKBENCH_ENVS`): `.venv-cad` with
+  `requirements-usage-test.txt` (MuJoCo, CoACD, python-fcl — usage test), `.venv-video` with `yt-dlp`,
+  `faster-whisper`, `av` (`python -m coo.video_izle`: turns a video into timestamped frame boards + transcript);
+  Node.js for HyperFrames Reels in `Video_Atölyesi/` (`WORKBENCH_VIDEO_WORKSHOP`)
 - Optional sibling repos: **3d-printer-open-workbench-erp** (costs, BOM, stock, quotes) and
   **3d-printer-open-workbench-studio** (parametric generators, `print_check`)
 
@@ -100,6 +110,8 @@ All settings are environment variables read from `.env` (see [`.env.example`](.e
 | `WORKBENCH_CLAUDE_CHROME` | `0` disables `--chrome` for agents |
 | `WORKBENCH_CLAUDE_PERMISSION_MODE` | permission mode for headless agents (default `bypassPermissions`) |
 | `WORKBENCH_DATA`, `WORKBENCH_CONFIG`, `WORKBENCH_ENVS`, `WORKBENCH_AI_TOOLS` | path overrides |
+| `WORKBENCH_SANDBOX` | `0` never passes the OS sandbox settings to agents (see [docs/security.md](docs/security.md)) |
+| `WORKBENCH_VIDEO_WORKSHOP` | HyperFrames projects folder (default `<root>/Video_Atölyesi`) |
 
 Business-specific content you should edit: `CLAUDE.md`, `config/marka/marka-rehberi.md`,
 `config/konseptler/*.md`, `config/renk_paleti.yaml`, `config/orca/kategoriler.yaml`, `config/bakim.yaml`.
@@ -130,6 +142,11 @@ then generates flattened profiles under `config/orca/` on first slice. The defau
 - **No invented data:** prices, reviews and sales figures must come with an opened source URL and date; sizes and
   materials on images are printed deterministically from real data, never drawn by AI.
 - **Secrets stay in `.env`** (git-ignored, `chmod 600`). Nothing secret goes into the repo or chat logs.
+- **Security gate.** A PreToolUse hook (`.claude/hooks/guvenlik_kapisi.py`) blocks secret-file access, sending data
+  to non-allowed hosts, print-start commands and destructive commands for every Claude session in this folder;
+  bot agents get least privilege from `config/guvenlik/ajan_yetkileri.json` (Chrome only for listed agents and
+  sites), and secret environment variables are stripped before an agent starts. Details, threat model and limits:
+  [docs/security.md](docs/security.md).
 - **Locked to one chat.** Agents run headless with tool access (`bypassPermissions` by default), so only your chat
   id may command the bot. Run it under your normal desktop user, never as root; consider a dedicated user account
   and a stricter `WORKBENCH_CLAUDE_PERMISSION_MODE` plus deny rules in `.claude/settings.json`.

@@ -3,14 +3,16 @@
 #   ./install.sh              venv + deps + .env + systemd user unit (not started)
 #   ./install.sh --start      ...and enable + start the service
 #   ./install.sh --no-service skip the systemd unit
+#   ./install.sh --security-timer  also install the daily security summary timer (22:00)
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-START=0; SERVICE=1
+START=0; SERVICE=1; GUVENLIK_ZAMANLAYICI=0
 for a in "$@"; do
   case "$a" in
     --start) START=1 ;;
     --no-service) SERVICE=0 ;;
-    -h|--help) sed -n '2,5p' "$0"; exit 0 ;;
+    --security-timer) GUVENLIK_ZAMANLAYICI=1 ;;
+    -h|--help) sed -n '2,6p' "$0"; exit 0 ;;
     *) echo "unknown option: $a" >&2; exit 2 ;;
   esac
 done
@@ -62,6 +64,17 @@ if [[ $SERVICE -eq 1 ]]; then
   else
     echo "Start later with: systemctl --user enable --now workbench-bot.service"
   fi
+fi
+
+if [[ $GUVENLIK_ZAMANLAYICI -eq 1 ]]; then
+  UNIT_DIR="$HOME/.config/systemd/user"
+  mkdir -p "$UNIT_DIR"
+  for u in service timer; do
+    sed -e "s#@ROOT@#$ROOT#g" "$ROOT/systemd/workbench-security-summary.$u.template" \
+      > "$UNIT_DIR/workbench-security-summary.$u"
+  done
+  systemctl --user daemon-reload && systemctl --user enable --now workbench-security-summary.timer \
+    || echo "WARNING: could not enable workbench-security-summary.timer"
 fi
 
 say "Done. Health check: ./saglik.sh   Tests: .venv/bin/python -m pytest -q"

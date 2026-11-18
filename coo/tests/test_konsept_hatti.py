@@ -72,7 +72,7 @@ def test_teknik_poster_bilgi_katmani_istemi() -> None:
 
 def test_teknik_poster_bilgiler_dogrulanmis_veri(tmp_path, monkeypatch) -> None:
     import yaml
-    from coo import teknik_poster
+    from coo import bilgi_verisi as teknik_poster
     (tmp_path / "kedi").mkdir()
     (tmp_path / "kedi" / "urun.yaml").write_text(yaml.safe_dump({
         "ad": "Kedi", "boyut_mm": {"x": 146.3, "y": 146.5, "z": 137.5},

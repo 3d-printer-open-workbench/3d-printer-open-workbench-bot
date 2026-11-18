@@ -81,6 +81,7 @@ from .kalite_kapisi import kalite_kapisi_calistir
 from .kalite_kapisi import rapor_ozeti as kalite_rapor_ozeti
 from .magaza_hatti import (
     hazirla_istemi,
+    paket_yolu,
     mevcut_gorseller,
     onizleme_metni,
     paket_oku,
@@ -89,7 +90,9 @@ from .magaza_hatti import (
     yukleme_dogrula,
     yukleme_oku,
 )
-from . import cok_renk_hatti, eticaret_denetim, pinterest_hatti, qwen_edit, reels_takvim, studio_hatti
+from . import metin_denetim
+from . import bekleyen_isler, klasor_temizlik, kullanim_testi_hatti
+from . import baski_video, cok_renk_hatti, reels_denetim, eticaret_denetim, hf_reels, pinterest_hatti, qwen_edit, reels_takvim, studio_hatti
 from .renk_paleti import (
     erpden_tohumla,
     kartela_gorseli,
@@ -102,6 +105,7 @@ from .renk_paleti import (
     palete_ekle,
     secim_istemi,
 )
+from .renk_hatti import renk_revize_istemi
 from .renk_hatti import (
     aciklamadan_renk_sku,
     renk_gorselleri_uret,
@@ -194,7 +198,7 @@ def ekran_var() -> bool:
 
 
 # ============================================================================
-# CLAUDE OPUS 5.5 (1. KATMAN CEO / CTO / CMO & 21 AJAN) KÖPRÜSÜ
+# CLAUDE OPUS 5.5 (1. KATMAN CEO / CTO / CMO & 22 AJAN) KÖPRÜSÜ
 # ============================================================================
 
 AJAN_KATALOGU: dict[str, tuple[str, str]] = {
@@ -219,6 +223,7 @@ AJAN_KATALOGU: dict[str, tuple[str, str]] = {
     "mesh-validator": ("📐 STL Mesh & Manifold Denetçisi", "testing"),
     "tool-evaluator": ("🔭 Yeni 3B/AI Araç Avcısı", "testing"),
     "workflow-optimizer": ("⚡ İş Akışı & Test Denetçisi", "testing"),
+    "kullanim-test-muhendisi": ("🧪 Kullanım Testi Mühendisi", "testing"),
 }
 
 KISA_AJAN_ESLEME: dict[str, str] = {
@@ -237,6 +242,7 @@ KISA_AJAN_ESLEME: dict[str, str] = {
     "lisans": "legal-compliance-checker",
     "destek": "support-responder",
     "bakim": "infrastructure-maintainer",
+    "kullanimtesti": "kullanim-test-muhendisi",
 }
 
 
@@ -274,12 +280,55 @@ def _hedef_ajan_coz(ajan_kodu: str) -> str:
 AJAN_MODELLERI: dict[str, str] = {
     "ceo-orchestrator": "opus", "cmo-store-director": "opus", "cto-architect": "opus", "cad-artist": "opus",
     "brand-guardian": "opus", "legal-compliance-checker": "opus", "backend-architect": "opus",
+    "kullanim-test-muhendisi": "opus",
     "trend-researcher": "sonnet", "finance-tracker": "sonnet", "slicer-engineer": "sonnet",
     "infrastructure-maintainer": "sonnet", "seo-copywriter": "sonnet", "visual-storyteller": "sonnet",
     "pinterest-curator": "sonnet", "reels-tiktok-strategist": "sonnet", "support-responder": "sonnet",
     "feedback-synthesizer": "sonnet", "experiment-tracker": "sonnet", "tool-evaluator": "sonnet",
     "workflow-optimizer": "sonnet", "mesh-validator": "sonnet",
 }
+
+
+async def _guvenlik_testi_baslat(tg: "TelegramIstemci", chat_id: int, arg: str = "") -> None:
+    """Patron isteğiyle yerel red-team testi (coo.guvenlik_testi): yem bilgi + 127.0.0.1 yakalayıcı, dışarı veri yok."""
+    komut = [str(PY_CAD), "-m", "coo.guvenlik_testi"] + (["--senaryo", arg.strip()] if arg.strip() else [])
+    await tg.mesaj_gonder(chat_id, "🧪 Güvenlik testi başladı: saldırı senaryoları ajanlara veriliyor (yem bilgi, yalnız "
+                                   "bu bilgisayarda yakalayıcı; ~5–15 dk)…")
+    try:
+        sonuc = await asyncio.to_thread(subprocess.run, komut, cwd=str(PROGRAMLAR_KLASORU), capture_output=True,
+                                        text=True, timeout=3600)
+        metin = "\n".join(s for s in (sonuc.stdout or "").splitlines() if not s.startswith("RAPOR ")).strip()
+        await tg.mesaj_gonder(chat_id, metin or f"⚠️ Güvenlik testi çıktı vermedi.\n`{(sonuc.stderr or '')[-300:]}`")
+    except subprocess.TimeoutExpired:
+        await tg.mesaj_gonder(chat_id, "⚠️ Güvenlik testi 60 dakikada bitmedi.")
+
+
+GIZLI_ORTAM = re.compile(r"(TOKEN|KEY|SECRET|PASS|SIFRE|PAROLA|CREDENTIAL)", re.IGNORECASE)
+GUVENLIK_KLASORU = CONFIG_KLASORU / "guvenlik"
+SANDBOX_AYARI = GUVENLIK_KLASORU / "ajan_sandbox.json"
+
+
+def sandbox_ayari() -> Path:
+    """ajan_sandbox.json şablonundaki @ROOT@ / @DATA@ yer tutucularını bu kurulumun yollarıyla doldurup
+    coo/loglar/ altına yazar; Claude Code'a `--settings` ile bu dosya verilir."""
+    metin = SANDBOX_AYARI.read_text(encoding="utf-8")
+    metin = metin.replace("@ROOT@", str(KOK)).replace("@DATA@", str(VERI_KLASORU))
+    hedef = LOG_KLASORU / "ajan_sandbox.json"
+    hedef.parent.mkdir(parents=True, exist_ok=True)
+    if not hedef.exists() or hedef.read_text(encoding="utf-8") != metin:
+        hedef.write_text(metin, encoding="utf-8")
+    return hedef
+
+
+def ajan_yetkisi(ajan: str) -> dict[str, Any]:
+    """config/guvenlik/ajan_yetkileri.json'dan ajanın yetkileri (varsayılan + ajana özel)."""
+    try:
+        tablo = json.loads((GUVENLIK_KLASORU / "ajan_yetkileri.json").read_text(encoding="utf-8"))
+    except Exception:
+        return {"chrome": False}
+    y = dict(tablo.get("varsayilan") or {})
+    y.update((tablo.get("ajanlar") or {}).get(ajan) or {})
+    return y
 
 
 def _claude_komut_ve_ortam(
@@ -291,11 +340,14 @@ def _claude_komut_ve_ortam(
     oturum_id: str | None = None,
     model: str | None = None,
 ) -> tuple[list[str], dict[str, str]]:
-    env = os.environ.copy()
+    # Güvenlik: gizli değerler (bot token, API anahtarları) ajan sürecine GEÇMEZ; ajan adı güvenlik kapısı için.
+    env = {k: v for k, v in os.environ.items() if not GIZLI_ORTAM.search(k)}
+    env["WORKBENCH_BOT_AJAN"] = hedef_ajan
     env["PATH"] = f"{Path.home() / '.local/bin'}:{env.get('PATH', '/usr/bin:/bin')}"
     # Ajanlar kökten (CLAUDE.md + .claude/) çalışır; `python3 -m coo.…` her yerden bulunsun.
     env["PYTHONPATH"] = os.pathsep.join(x for x in (str(PROGRAMLAR_KLASORU), env.get("PYTHONPATH", "")) if x)
     env.setdefault("HF_HOME", str(HF_HOME))
+    yetki = ajan_yetkisi(hedef_ajan)
     komut = [
         claude_bin,
         "-p",
@@ -304,9 +356,12 @@ def _claude_komut_ve_ortam(
         "--permission-mode",
         os.environ.get("WORKBENCH_CLAUDE_PERMISSION_MODE") or "bypassPermissions",
     ]
+    # Güvenlik: Bash işletim sistemi düzeyinde yalıtılır (gizli dosyalar okunamaz, ağ yalnız izinli adreslere).
+    if yetki.get("sandbox", True) and os.environ.get("WORKBENCH_SANDBOX", "1") != "0" and SANDBOX_AYARI.exists():
+        komut.extend(["--settings", str(sandbox_ayari())])
     if stream_json:
         komut.extend(["--output-format", "stream-json", "--verbose"])
-    if os.environ.get("WORKBENCH_CLAUDE_CHROME", "1") != "0" and ekran_var():
+    if yetki.get("chrome") and os.environ.get("WORKBENCH_CLAUDE_CHROME", "1") != "0" and ekran_var():
         komut.append("--chrome")
     if oturum_id:
         komut.extend(["--resume", oturum_id])
@@ -720,6 +775,17 @@ class TelegramIstemci:
             except Exception:
                 return False
 
+    async def klavye_guncelle(self, chat_id: int, message_id: int | None, butonlar: list[list[dict[str, str]]]) -> bool:
+        if not message_id:
+            return False
+        try:
+            await asyncio.to_thread(self._json_istek, "editMessageReplyMarkup",
+                                    {"chat_id": chat_id, "message_id": message_id,
+                                     "reply_markup": {"inline_keyboard": butonlar}}, 10.0)
+            return True
+        except Exception:
+            return False
+
     async def klavye_temizle(self, chat_id: int, message_id: int | None) -> bool:
         """Hem metin hem fotoğraf mesajlarındaki inline butonları güvenle kaldırır."""
         if not message_id:
@@ -870,6 +936,8 @@ class CooDurumBellegi:
         self.cok_renk_onceki: dict[str, list[str]] = {}  # sku -> beğenilmeyen şema adları
         self.baski_izleme: dict[str, Any] = {}
         self.alim_bekleniyor: bool = False  # "🧾 Fatura / Alım Gir" sonrası beklenen belge
+        self.urun_silme: dict[str, Any] = {}  # 🗑️ Ürün Sil: {liste: [sku], secili: set(sku)}
+        self.temizlik: dict[str, Any] = {}  # 🧹 Klasör Temizliği: {tarama: {kat: [aday]}, secili: set(kat)}
         self.alim_albumleri: dict[str, Path] = {}  # media_group_id → alım klasörü (çok sayfalı fatura)  # aktif baskı: dosya, sku, plan, gonderilen, son_ilerleme
 
 
@@ -952,6 +1020,10 @@ def _ust_yonetim_butonlari() -> list[list[dict[str, str]]]:
             {"text": "🛍️ Trend Vitrini", "callback_data": "b2c:vitrin"},
         ],
         [
+            {"text": "📋 Bekleyen İşler", "callback_data": "bk:liste"},
+            {"text": "🧹 Klasör Temizliği", "callback_data": "tmz:tara"},
+        ],
+        [
             {"text": "🖨️ Yazıcı", "callback_data": "yazici:durum"},
             {"text": "📊 Hat Özeti", "callback_data": "urun:ozet_tumu"},
         ],
@@ -988,9 +1060,13 @@ BOT_KOMUTLARI = [
     ("menu", "Ana menü"),
     ("trend", "Trend araştır: satan ürünler, fiyatlar, linkler"),
     ("reels", "Reels takvimi: trend fikirleri üret / takvimi aç"),
+    ("hfreels", "HyperFrames Reels: /hfreels <konu> (serbest) veya /hfreels <sku>"),
     ("fikir", "Yeni ürün fikri (metin / ekran görüntüsü / link)"),
     ("konsept", "Konsept kütüphanesi: görsel + Reels stilleri"),
     ("urunler", "Ürünlerim: her ürünün kartı ve işlemleri"),
+    ("bekleyen", "Bekleyen işler: kararını bekleyen onay / not / yeniden üret"),
+    ("temizlik", "Klasör temizliği: ara dosyalar ve onaylanmamış görseller (çöpe taşır)"),
+    ("guvenlik_testi", "Yerel saldırı (prompt injection) testi — ajanlar kandırılabiliyor mu"),
     ("durum", "Yazıcı durumu ve kamera"),
     ("ozet", "Tüm hat özeti"),
     ("stok", "Filament ve malzeme stoku"),
@@ -1018,6 +1094,7 @@ async def _komutlari_kaydet(tg: "TelegramIstemci") -> None:
 async def _urunler_menusu_gonder(tg: "TelegramIstemci", chat_id: int) -> None:
     butonlar = await asyncio.to_thread(urun_listesi_butonlari)
     adet = len(butonlar) - 1
+    butonlar.insert(-1, [{"text": "🗑️ Ürün Sil", "callback_data": "usil:liste"}])
     metin = (f"📦 *Ürünlerim* ({adet})\nBir ürüne dokun → aşamasını ve yapılabilecek işlemleri gör."
              if adet else "📦 Henüz ürün yok. *💡 Yeni Fikir* ile başla.")
     await tg.mesaj_gonder(chat_id, metin, butonlar=butonlar)
@@ -1102,6 +1179,7 @@ async def _medya_paketi_gonder(tg: TelegramIstemci, chat_id: int, sku: str, sonu
     """Gerçek kaynaklı Reels kurgusunu gönderir (numuneden Flow/Veo, kullanıcı çekimi, timelapse)."""
     if sonuc.reels_mp4 and sonuc.reels_mp4.exists():
         await tg.video_gonder(chat_id, sonuc.reels_mp4, aciklama=f"🎬 *{sku}* — Reels & TikTok (`1080×1920`, gerçek kaynaklı)")
+        await _reels_denetle(tg, chat_id, sonuc.reels_mp4, {"tur": "kurgu", "sku": sku})
     else:
         await tg.mesaj_gonder(chat_id, f"ℹ️ `{sku}` için gerçek kaynak (numuneden Flow videosu, çekim, timelapse) yok; "
                                        "ürün tanıtım Reels'i Teknik Poster konseptinden üretilir.",
@@ -1187,7 +1265,7 @@ def _fikir_alt_butonlari(sku: str) -> list[list[dict[str, str]]]:
     return [[
         {"text": "🔁 Yeni konsept", "callback_data": f"fikir:yeni:{sku}"},
         {"text": "❌ İptal", "callback_data": f"fikir:iptal:{sku}"},
-    ]]
+    ], [bekleyen_isler.not_dugmesi("kf", sku)]]
 
 
 async def _fikir_konsept_baslat(
@@ -1385,6 +1463,7 @@ async def _fiyat_karari_uygula_ve_goster(
                     + ([] if ozet else [{"text": "💹 Pazar Araştır", "callback_data": f"pazar:arastir:{sku}"}]))
     butonlar.append([{"text": "🚀 Mağazaya Yükle", "callback_data": f"magaza:yukle:{sku}"},
                      {"text": "🔁 Yeniden Hazırla", "callback_data": f"magaza:hazirla:{sku}"}])
+    butonlar.append([bekleyen_isler.not_dugmesi("mg", sku)])
     await tg.mesaj_gonder(chat_id, onizleme_metni(paket), butonlar=butonlar)
 
 
@@ -1567,6 +1646,193 @@ async def _onarim_ajani(tg: TelegramIstemci, chat_id: int, sku: str, sorunlar: l
                                gorev_ozeti=f"{sku} Blender onarım", sonraki_islem=_sonra)
 
 
+# ---------------------------------------------------------------------------------------------------- 🧪 Kullanım testi
+def _kt_butonlari(sku: str, rapor: dict[str, Any]) -> list[list[dict[str, str]]]:
+    kaldi = rapor.get("durum") == "KALDI"
+    return [
+        [{"text": "✅ Olduğu Gibi Onayla" if kaldi else "✅ Onayla", "callback_data": f"kt:onay:{sku}"},
+         bekleyen_isler.not_dugmesi("kt", sku)],
+        [{"text": "🛠️ Yeniden Tasarla", "callback_data": f"kt:tasarim:{sku}"} if kaldi
+         else {"text": "🔁 Testi Yinele", "callback_data": f"kt:baslat:{sku}"}],
+        [{"text": "📦 Ürün Kartı", "callback_data": f"urunmenu:{sku}"}],
+    ]
+
+
+async def _kt_sonucu_gonder(tg: TelegramIstemci, chat_id: int, sku: str, onek: str = "") -> dict[str, Any] | None:
+    """Son kullanım testi: pano + özet + [Onayla] [Not ile Güncelle] [Yeniden Tasarla]."""
+    rapor = await asyncio.to_thread(kullanim_testi_hatti.rapor_oku, sku)
+    if rapor is None:
+        await tg.mesaj_gonder(chat_id, f"ℹ️ `{sku}` için kullanım testi sonucu yok.",
+                              butonlar=[[{"text": "🧪 Kullanım Testi Başlat", "callback_data": f"kt:baslat:{sku}"}]])
+        return None
+    d = await asyncio.to_thread(kullanim_testi_hatti.durum, sku)
+    if d["pano"] and Path(d["pano"]).exists():
+        await tg.foto_gonder(chat_id, Path(d["pano"]).read_bytes(),
+                             aciklama=f"🧪 `{sku}` kullanım testi — {rapor.get('durum')} ({rapor.get('tarih')})",
+                             dosya_adi="kullanim-testi.png")
+    await tg.mesaj_gonder(chat_id, onek + kullanim_testi_hatti.ozet_metni(sku, rapor, d["tur"]),
+                          butonlar=_kt_butonlari(sku, rapor))
+    return rapor
+
+
+async def _kt_baslat(tg: TelegramIstemci, chat_id: int, sku: str, not_: str = "") -> None:
+    """🧪 Kullanım testi: kullanim-test-muhendisi vaadi çıkarır, motoru çalıştırır, denetler; sonuç panoyla gelir."""
+    if await asyncio.to_thread(kullanim_testi_hatti.stl_yolu, sku) is None:
+        await tg.mesaj_gonder(chat_id, f"⚠️ `{sku}` için STL yok; önce 3B model.",
+                              butonlar=[[{"text": "📦 Ürün Kartı", "callback_data": f"urunmenu:{sku}"}]])
+        return
+    await tg.mesaj_gonder(chat_id, f"🧪 `{sku}` kullanım testi başlıyor: vaat → kurallar → MuJoCo fizik (bırakma, "
+                                   "eğme, sarsma, dokunma) + ölçüler (~2–5 dk).")
+
+    async def _sonra(basarili: bool, yanit: str, devam: str | None) -> None:
+        r = await _kt_sonucu_gonder(tg, chat_id, sku)
+        if r is None or not basarili:
+            son = (yanit or "").strip().splitlines()[-1:] or [""]
+            await tg.mesaj_gonder(chat_id, f"⚠️ Test ajanı: `{son[0][:300]}`", butonlar=_gorev_sonu_butonlari(devam))
+
+    _ajan_arka_planda_calistir(tg, chat_id, "kullanim-test-muhendisi", kullanim_testi_hatti.test_istemi(sku, not_),
+                               gorev_ozeti=f"Kullanım testi: {sku}", sonraki_islem=_sonra)
+
+
+async def _kt_tasarla(tg: TelegramIstemci, chat_id: int, sku: str, ek_not: str = "") -> None:
+    """🛠️ Yeniden Tasarla: KALDI raporundan ölçülü revize notu → cad-artist yeni STL → otomatik tekrar test.
+    En fazla AZAMI_TUR tur; sonra Patrona sorulur."""
+    rapor = await asyncio.to_thread(kullanim_testi_hatti.rapor_oku, sku)
+    if not rapor or rapor.get("durum") != "KALDI":
+        await tg.mesaj_gonder(chat_id, f"ℹ️ `{sku}` için yeniden tasarlanacak KALDI sonucu yok.",
+                              butonlar=[[{"text": "🧪 Kullanım Testi", "callback_data": f"kt:baslat:{sku}"}]])
+        return
+    azami = kullanim_testi_hatti.AZAMI_TUR
+    d = await asyncio.to_thread(kullanim_testi_hatti.durum, sku)
+    if d["tur"] >= azami:
+        await tg.mesaj_gonder(
+            chat_id, f"🛑 `{sku}` {azami} yeniden tasarım turunda da kullanım testini geçemedi. Karar senin:",
+            butonlar=[[{"text": "✅ Olduğu Gibi Onayla", "callback_data": f"kt:onay:{sku}"},
+                       bekleyen_isler.not_dugmesi("kt", sku)],
+                      [{"text": f"🔁 {azami} Tur Daha Dene", "callback_data": f"kt:tasarimsifir:{sku}"}],
+                      [{"text": "📦 Ürün Kartı", "callback_data": f"urunmenu:{sku}"}]])
+        return
+    tur = await asyncio.to_thread(kullanim_testi_hatti.tur_artir, sku)
+    await tg.mesaj_gonder(chat_id, f"🛠️ `{sku}` yeniden tasarım turu {tur}/{azami}: Sanatçı ölçülü revize notunu "
+                                   "uyguluyor; bitince yeni STL otomatik tekrar test edilir.")
+
+    async def _sonra(basarili: bool, yanit: str, devam: str | None) -> None:
+        if not basarili:
+            await tg.mesaj_gonder(chat_id, f"⚠️ `{sku}` yeniden tasarım tamamlanamadı (tur {tur}/{azami}).",
+                                  butonlar=_gorev_sonu_butonlari(devam))
+            return
+        await tg.mesaj_gonder(chat_id, f"🧪 `{sku}` yeni STL ile otomatik tekrar test…")
+        try:
+            r = await asyncio.to_thread(kullanim_testi_hatti.motoru_calistir, sku)
+        except Exception as exc:  # motor hatası: Patron görsün, döngü durur
+            await tg.mesaj_gonder(chat_id, f"❌ `{sku}` kullanım testi motoru hata verdi: {str(exc)[-600:]}")
+            return
+        await _kt_sonucu_gonder(tg, chat_id, sku, onek=f"🛠️ Tur {tur}/{azami} sonrası\n")
+        if r.get("durum") == "KALDI" and tur < azami:
+            await _kt_tasarla(tg, chat_id, sku, ek_not)
+
+    _ajan_arka_planda_calistir(tg, chat_id, "cad-artist", kullanim_testi_hatti.tasarim_istemi(sku, rapor, tur, ek_not),
+                               gorev_ozeti=f"Kullanım testi revizyonu {tur}/{azami}: {sku}", sonraki_islem=_sonra)
+
+
+async def _kt_uyarisi(tg: TelegramIstemci, chat_id: int, sku: str) -> None:
+    """Dilimleme/mağaza adımına geçerken: kullanım testi onaylı değilse UYARI (engellemez)."""
+    if not (URUNLER_KLASORU / sku).is_dir() or await asyncio.to_thread(kullanim_testi_hatti.stl_yolu, sku) is None:
+        return
+    d = await asyncio.to_thread(kullanim_testi_hatti.durum, sku)
+    if d["onayli"]:
+        return
+    neden = (f"son test *{d['durum']}*, onayın bekleniyor" if d["var"] else "kullanım testi hiç yapılmadı")
+    await tg.mesaj_gonder(chat_id, f"⚠️ `{sku}`: {neden}. Devam ediliyor (engel değil); ürünün vaat ettiği kullanımı "
+                                   "sağladığını onaylamak için:",
+                          butonlar=[[{"text": "🧪 Kullanım Testi", "callback_data":
+                                      f"kt:goster:{sku}" if d["var"] else f"kt:baslat:{sku}"}]])
+
+
+async def _kt_callback(tg: TelegramIstemci, chat_id: int, veri: str) -> None:
+    parca = veri.split(":", 2)
+    if len(parca) != 3 or not (URUNLER_KLASORU / parca[2]).is_dir():
+        await tg.mesaj_gonder(chat_id, "❌ Ürün bulunamadı.")
+        return
+    eylem, sku = parca[1], parca[2]
+    if eylem == "baslat":
+        await _kt_baslat(tg, chat_id, sku)
+    elif eylem == "goster":
+        await _kt_sonucu_gonder(tg, chat_id, sku)
+    elif eylem == "onay":
+        try:
+            kt = await asyncio.to_thread(kullanim_testi_hatti.onayla, sku)
+        except ValueError as exc:
+            await tg.mesaj_gonder(chat_id, f"⚠️ {exc}")
+            return
+        await asyncio.to_thread(kullanim_testi_hatti.tur_artir, sku, None, True)
+        await tg.mesaj_gonder(chat_id, f"✅ `{sku}` kullanım testi onaylandı ({kt.get('onaylanan_durum')}).",
+                              butonlar=urun_sonraki_butonlari(sku))
+    elif eylem == "tasarim":
+        await _kt_tasarla(tg, chat_id, sku)
+    elif eylem == "tasarimsifir":
+        await asyncio.to_thread(kullanim_testi_hatti.tur_artir, sku, None, True)
+        await _kt_tasarla(tg, chat_id, sku)
+    else:
+        await tg.mesaj_gonder(chat_id, f"❓ Bilinmeyen kullanım testi işlemi: `{eylem}`")
+
+
+async def _magaza_paketi_hazirla(tg: TelegramIstemci, chat_id: int, sku: str, fire: int, not_: str = "") -> None:
+    """Mağaza paketi: yazar (cmo) → editör review → görseller + fiyat seçenekleri. not_: ✏️ Not ile Güncelle."""
+    kok = URUNLER_KLASORU / sku
+    (kok / "magaza").mkdir(exist_ok=True)
+    eski = kok / "magaza" / "paket.json"
+    if eski.exists():
+        eski.unlink()
+
+    async def _hazirla_sonrasi(basarili: bool, yanit: str, devam_anahtari: str | None) -> None:
+        paket, hatalar = await asyncio.to_thread(paket_oku, sku)
+        yeniden = [[{"text": "🔁 Yeniden Hazırla", "callback_data": f"magaza:hazirla:{sku}"},
+                    bekleyen_isler.not_dugmesi("mg", sku)]]
+        if hatalar or paket is None:
+            await tg.mesaj_gonder(
+                chat_id,
+                f"⚠️ `{sku}` mağaza paketi tamamlanamadı:\n• " + "\n• ".join(hatalar)
+                + f"\n\n{(yanit or '')[-500:]}",
+                butonlar=yeniden + _gorev_sonu_butonlari(devam_anahtari),
+            )
+            return
+        await asyncio.to_thread(urun_yaml_guncelle, sku, {"durum": "PATRON_ONAYINDA",
+                                                         "magaza_paketi": "magaza/paket.json"})
+        try:
+            hg = await asyncio.to_thread(magaza_gorsel_hazirla, sku)
+            kapak = kok / hg["gorseller"][0]["dosya"]
+            await tg.mesaj_gonder(chat_id, f"🖼️ `{sku}` mağaza görselleri hazır: {len(hg['gorseller'])} galeri"
+                                           + (f" + {sum(len(v['gorseller']) for v in hg['varyantlar'])} varyant"
+                                              if hg["varyantlar"] else "")
+                                           + f" görseli, `{hg['kare_px']}×{hg['kare_px']}` kare JPG, alt metinli.")
+        except Exception as exc:  # noqa: BLE001 — görsel hazırlığı paketi engellemesin
+            log.warning("Mağaza görsel hazırlığı: %s", exc)
+            kapak = kok / paket["gorseller"][0]
+        await tg.foto_gonder(chat_id, kapak.read_bytes(), aciklama=f"🖼️ Kapak — `{sku}`", dosya_adi=kapak.name)
+        await _fiyat_karari_uygula_ve_goster(tg, chat_id, sku, paket)
+
+    async def _yazar_sonrasi(basarili: bool, yanit: str, devam_anahtari: str | None) -> None:
+        # Patron kuralı 2026-11-17: metin önce kıdemli editör review'undan geçer (rehber + metin_denetim)
+        if not basarili or not paket_yolu(sku).exists():
+            await _hazirla_sonrasi(basarili, yanit, devam_anahtari)
+            return
+        await tg.mesaj_gonder(chat_id, f"✍️ `{sku}` metni editör review'unda (kısa, insan sesi, profesyonel)…")
+
+        async def _review_sonrasi(b2: bool, y2: str, d2: str | None) -> None:
+            son = " | ".join((y2 or "").strip().splitlines()[-2:])
+            await _hazirla_sonrasi(basarili, f"{yanit}\n\n[Editör review] {son[:300]}", d2 or devam_anahtari)
+
+        _ajan_arka_planda_calistir(tg, chat_id, "brand-guardian", metin_denetim.review_istemi(sku),
+                                   gorev_ozeti=f"Metin review: {sku}", sonraki_islem=_review_sonrasi,
+                                   model="opus")
+
+    _ajan_arka_planda_calistir(
+        tg, chat_id, "cmo-store-director", hazirla_istemi(sku, fire, not_=not_),
+        gorev_ozeti=f"Mağaza paketi: {sku}" + (" (notla)" if not_ else ""), sonraki_islem=_yazar_sonrasi,
+    )
+
+
 # --- Mağaza hattı: Hazırla (fire sor → ERP fiyat + SEO + paket.json) → Önizleme → Yükle (Chrome/İkas) ---
 async def _magaza_callback(tg: TelegramIstemci, chat_id: int, veri: str) -> None:
     parcalar = veri.split(":")
@@ -1600,42 +1866,7 @@ async def _magaza_callback(tg: TelegramIstemci, chat_id: int, veri: str) -> None
         return
 
     if eylem == "fire" and len(parcalar) > 3 and parcalar[3].isdigit():
-        fire = int(parcalar[3])
-        (kok / "magaza").mkdir(exist_ok=True)
-        eski = kok / "magaza" / "paket.json"
-        if eski.exists():
-            eski.unlink()
-
-        async def _hazirla_sonrasi(basarili: bool, yanit: str, devam_anahtari: str | None) -> None:
-            paket, hatalar = await asyncio.to_thread(paket_oku, sku)
-            yeniden = [[{"text": "🔁 Yeniden Hazırla", "callback_data": f"magaza:hazirla:{sku}"}]]
-            if hatalar or paket is None:
-                await tg.mesaj_gonder(
-                    chat_id,
-                    f"⚠️ `{sku}` mağaza paketi tamamlanamadı:\n• " + "\n• ".join(hatalar)
-                    + f"\n\n{(yanit or '')[-500:]}",
-                    butonlar=yeniden + _gorev_sonu_butonlari(devam_anahtari),
-                )
-                return
-            await asyncio.to_thread(urun_yaml_guncelle, sku, {"durum": "PATRON_ONAYINDA",
-                                                             "magaza_paketi": "magaza/paket.json"})
-            try:
-                hg = await asyncio.to_thread(magaza_gorsel_hazirla, sku)
-                kapak = kok / hg["gorseller"][0]["dosya"]
-                await tg.mesaj_gonder(chat_id, f"🖼️ `{sku}` mağaza görselleri hazır: {len(hg['gorseller'])} galeri"
-                                               + (f" + {sum(len(v['gorseller']) for v in hg['varyantlar'])} varyant"
-                                                  if hg["varyantlar"] else "")
-                                               + f" görseli, `{hg['kare_px']}×{hg['kare_px']}` kare JPG, alt metinli.")
-            except Exception as exc:  # noqa: BLE001 — görsel hazırlığı paketi engellemesin
-                log.warning("Mağaza görsel hazırlığı: %s", exc)
-                kapak = kok / paket["gorseller"][0]
-            await tg.foto_gonder(chat_id, kapak.read_bytes(), aciklama=f"🖼️ Kapak — `{sku}`", dosya_adi=kapak.name)
-            await _fiyat_karari_uygula_ve_goster(tg, chat_id, sku, paket)
-
-        _ajan_arka_planda_calistir(
-            tg, chat_id, "cmo-store-director", hazirla_istemi(sku, fire),
-            gorev_ozeti=f"Mağaza paketi: {sku}", sonraki_islem=_hazirla_sonrasi,
-        )
+        await _magaza_paketi_hazirla(tg, chat_id, sku, int(parcalar[3]))
         return
 
     if eylem == "fiyat" and len(parcalar) > 3 and parcalar[3].isdigit():
@@ -1656,6 +1887,8 @@ async def _magaza_callback(tg: TelegramIstemci, chat_id: int, veri: str) -> None
 
     if eylem == "yukle":
         paket, hatalar = await asyncio.to_thread(paket_oku, sku)
+        if paket is not None:
+            hatalar = hatalar + metin_denetim.yukleme_engelleri(paket)
         if hatalar or paket is None:
             await tg.mesaj_gonder(chat_id, "❌ Paket geçersiz, yüklenmedi:\n• " + "\n• ".join(hatalar))
             return
@@ -1879,7 +2112,8 @@ async def _renk_callback(tg: TelegramIstemci, chat_id: int, veri: str, mesaj: di
             chat_id,
             f"✅ `{sku}` renkleri kaydedildi ({len(tum)} renk: {', '.join(r['ad'] for r in tum)}).\n"
             "⚠️ Bu renklerde filamentin olduğundan emin ol — mağazada her renk ayrı varyant olarak açılır.",
-            butonlar=[[{"text": "📸 Stüdyo Görselleri", "callback_data": f"icerik:studyo:{sku}"}],
+            butonlar=[[{"text": "📸 Stüdyo Görselleri", "callback_data": f"icerik:studyo:{sku}"},
+                       bekleyen_isler.not_dugmesi("rk", sku)],
                       [{"text": "🛒 Mağazaya Hazırla", "callback_data": f"magaza:hazirla:{sku}"},
                        {"text": "🎨 Başka Renk Ekle", "callback_data": f"renk:iste:{sku}"}]],
         )
@@ -1891,6 +2125,7 @@ async def _renk_callback(tg: TelegramIstemci, chat_id: int, veri: str, mesaj: di
 
 # --- İçerik hattı: YZ boş sahne + Blender ürün → yaşam görselleri, Veo video, Reels/Pin/metin (numune gerekmez) ---
 ICERIK_REVIZE_BASLIGI = "✏️ İçerik revize notu"
+REELS_NOT_BASLIGI = "✏️ Reels düzeltme notu"
 
 
 async def _icerik_onaya_sun(tg: TelegramIstemci, chat_id: int, sku: str) -> None:
@@ -1995,8 +2230,87 @@ AI3D_PY = PY_AI3D
 KONSEPT_ISTEM_BASLIGI = "🎨 Yeni konsept istemi"
 
 
-async def _konsept_uret(tg: TelegramIstemci, chat_id: int, sku: str, konsept: dict) -> None:
-    """Flow (Chrome) ile konsept görsel (3:4 + 9:16) ve Veo Reels; sonuçlar Telegram'a."""
+async def _reels_denetle(tg: TelegramIstemci, chat_id: int, video: Path, kaynak: dict[str, Any]) -> None:
+    """Reels'i bağımsız denetçiye (brand-guardian) izletir; düzeltme maddeleri seçilebilir düğmelerle gelir."""
+    kid = await asyncio.to_thread(reels_denetim.yeni_kayit, video, kaynak)
+    await tg.mesaj_gonder(chat_id, "🔍 Video izlenip denetleniyor (~5–10 dk). Beklemeden kendi notunla da düzelttirebilirsin.",
+                          butonlar=[[{"text": "✏️ Not ile Düzenle", "callback_data": f"rd:not:{kid}"}]])
+
+    async def _sonra(basarili: bool, yanit: str, devam_anahtari: str | None) -> None:
+        try:
+            k = await asyncio.to_thread(reels_denetim.oku, kid)
+        except (OSError, ValueError):
+            k = {}
+        if not k or k.get("durum") != "HAZIR":
+            await tg.mesaj_gonder(chat_id, f"⚠️ Reels denetimi tamamlanamadı.\n\n{(yanit or '')[-500:]}",
+                                  butonlar=_gorev_sonu_butonlari(devam_anahtari))
+            return
+        await tg.mesaj_gonder(chat_id, reels_denetim.ozet_metni(k), butonlar=reels_denetim.butonlar(k))
+
+    _ajan_arka_planda_calistir(tg, chat_id, "brand-guardian", await asyncio.to_thread(reels_denetim.denetim_istemi, kid),
+                               zaman_asimi=1800, gorev_ozeti=f"Reels denetimi: {video.name}", sonraki_islem=_sonra)
+
+
+async def _reels_duzelt(tg: TelegramIstemci, chat_id: int, kid: str, not_: str = "") -> None:
+    k = await asyncio.to_thread(reels_denetim.oku, kid)
+    if not k.get("secili") and not not_.strip():
+        await tg.mesaj_gonder(chat_id, "ℹ️ Önce düzeltilecek maddeleri seç (☐ → ☑) ya da *✏️ Not ile Düzenle*.")
+        return
+    ajan, istem = await asyncio.to_thread(reels_denetim.duzeltme_istemi, kid, None, not_)
+    k = await asyncio.to_thread(reels_denetim.oku, kid)
+    yeni = Path(k["yeni_video"])
+    ne = (f"{len(k['secili'])} madde" if k.get("secili") else "") + (" + notun" if not_.strip() else "")
+    await tg.mesaj_gonder(chat_id, f"🛠️ {ne.strip(' +')} `{ajan}` ajanına verildi; düzeltilmiş video gelince "
+                                   "yeniden izlenip denetlenecek.")
+
+    async def _sonra(basarili: bool, yanit: str, devam_anahtari: str | None) -> None:
+        if not yeni.exists():
+            await tg.mesaj_gonder(chat_id, f"⚠️ Düzeltilmiş video çıkmadı.\n\n{(yanit or '')[-500:]}",
+                                  butonlar=_gorev_sonu_butonlari(devam_anahtari))
+            return
+        await tg.video_gonder(chat_id, yeni, aciklama=f"🛠️ Düzeltilmiş Reels — `{yeni.name}`")
+        await _reels_denetle(tg, chat_id, yeni, k["kaynak"])
+
+    _ajan_arka_planda_calistir(tg, chat_id, ajan, istem, zaman_asimi=2700, gorev_ozeti=f"Reels revize: {yeni.name}",
+                               sonraki_islem=_sonra, model="opus")
+
+
+async def _hf_reels_baslat(tg: TelegramIstemci, chat_id: int, sku: str | None, konu: str = "") -> None:
+    """HyperFrames (Video_Atölyesi) ile Reels: ürün (sku) ya da serbest konu. Ajan yazar, denetler, render eder."""
+    if sku:
+        istem, cikti, proje = await asyncio.to_thread(hf_reels.urun_istemi, sku, konu)
+        baslik = f"`{sku}` ürün Reels'i"
+    else:
+        istem, cikti, proje = await asyncio.to_thread(hf_reels.serbest_istemi, konu)
+        baslik = f"serbest Reels — «{konu}»"
+    baslangic = time.time()
+    await tg.mesaj_gonder(chat_id, f"🎞️ HyperFrames ile {baslik} hazırlanıyor (yaz → denetle → render, ~15–30 dk)…")
+
+    async def _sonra(basarili: bool, yanit: str, devam_anahtari: str | None) -> None:
+        adaylar = await asyncio.to_thread(hf_reels.yeni_ciktilar, cikti.parent, baslangic,
+                                          "hf-reels-*.mp4" if sku else "*.mp4")
+        video = cikti if cikti.exists() else (adaylar[-1] if adaylar else None)
+        if not video:
+            await tg.mesaj_gonder(chat_id, f"⚠️ HyperFrames videosu çıkmadı.\n\n{(yanit or '')[-600:]}",
+                                  butonlar=_gorev_sonu_butonlari(devam_anahtari))
+            return
+        yeniden = f"hf:urun:{sku}" if sku else None
+        butonlar = [[{"text": "🔁 Yeniden Üret", "callback_data": yeniden},
+                     bekleyen_isler.not_dugmesi("hf", sku)]] if yeniden and sku else []
+        if sku:
+            butonlar.append([{"text": "📦 Ürün Kartı", "callback_data": f"urunmenu:{sku}"}])
+        await tg.video_gonder(chat_id, video, aciklama=f"🎞️ HyperFrames — {baslik}\n`{video.name}`")
+        await tg.mesaj_gonder(chat_id, f"✅ Video hazır: `{video}`\nYayın senin onayınla. Şimdi izleyip denetliyorum…",
+                              butonlar=butonlar or None)
+        await _reels_denetle(tg, chat_id, video, {"tur": "hf", "sku": sku, "proje": str(proje)})
+
+    _ajan_arka_planda_calistir(tg, chat_id, "reels-tiktok-strategist", istem, zaman_asimi=2700,
+                               gorev_ozeti=f"HyperFrames Reels: {sku or konu[:30]}", sonraki_islem=_sonra,
+                               model="opus")
+
+
+async def _konsept_uret(tg: TelegramIstemci, chat_id: int, sku: str, konsept: dict, not_: str = "") -> None:
+    """Flow (Chrome) ile konsept görsel (3:4 + 9:16) ve Veo Reels; sonuçlar Telegram'a. not_: ✏️ Not ile Güncelle."""
     if not ekran_var():
         await tg.mesaj_gonder(chat_id, "⚠️ Chrome ekran oturumu yok; Flow çalıştırılamıyor.")
         return
@@ -2005,8 +2319,10 @@ async def _konsept_uret(tg: TelegramIstemci, chat_id: int, sku: str, konsept: di
                                        "(Qwen) üretilmeli; poster ürünün gerçek görselinden yapılır.",
                               butonlar=[[{"text": "🛍️ E-ticaret Görselleri", "callback_data": f"icerik:studyo:{sku}"}]])
         return
-    await tg.mesaj_gonder(chat_id, f"🎨 `{sku}` — *{konsept['baslik']}* konsepti Flow'da üretiliyor "
-                                   "(3:4 poster + 9:16 + Reels, ~10 dk, kredi harcar)…")
+    kaynak = ("Canva şablonundan poster + Flow'da Reels" if konsept.get("bilgi_katmani") == "teknik_poster"
+              else "Flow'da poster + Reels")
+    await tg.mesaj_gonder(chat_id, f"🎨 `{sku}` — *{konsept['baslik']}* konsepti üretiliyor ({kaynak}; "
+                                   "3:4 poster + 9:16 + Reels, ~10 dk, video kredi harcar)…")
 
     async def _sonra(basarili: bool, yanit: str, devam_anahtari: str | None) -> None:
         c = await asyncio.to_thread(konsept_ciktilari, sku, konsept["ad"])
@@ -2020,15 +2336,21 @@ async def _konsept_uret(tg: TelegramIstemci, chat_id: int, sku: str, konsept: di
                                      aciklama=f"🎨 {konsept['baslik']} — {etiket}")
         if c["reels"]:
             await tg.video_gonder(chat_id, c["reels"], aciklama=f"🎬 {konsept['baslik']} — Reels")
+            await _reels_denetle(tg, chat_id, c["reels"], {"tur": "flow", "sku": sku,
+                                                            "baslangic_karesi": str(c["dikey"] or ""),
+                                                            "istem": konsept.get("video_istemi", "")})
         son = (yanit or "").strip().splitlines()[-1:] or [""]
+        sira = next((i for i, k in enumerate(await asyncio.to_thread(konseptler)) if k.get("ad") == konsept.get("ad")), None)
+        not_satiri = [bekleyen_isler.not_dugmesi("ks", f"{sku}.{sira}")] if sira is not None else []
         await tg.mesaj_gonder(
             chat_id, f"✅ Konsept hazır. `{son[0][:200]}`",
             butonlar=[[{"text": "🔁 Tekrar Üret", "callback_data": f"konsept:liste:{sku}"},
                        {"text": "📋 Onaya Sun", "callback_data": f"icerik:sun:{sku}"}],
-                      [{"text": "📦 Ürün Kartı", "callback_data": f"urunmenu:{sku}"}]])
+                      not_satiri + [{"text": "📦 Ürün Kartı", "callback_data": f"urunmenu:{sku}"}]])
 
-    _ajan_arka_planda_calistir(tg, chat_id, "cmo-store-director", konsept_istemi(sku, konsept),
-                               gorev_ozeti=f"Konsept {konsept['ad']}: {sku}", sonraki_islem=_sonra)
+    _ajan_arka_planda_calistir(tg, chat_id, "cmo-store-director", konsept_istemi(sku, konsept, not_=not_),
+                               gorev_ozeti=f"Konsept {konsept['ad']}: {sku}" + (" (notla)" if not_ else ""),
+                               sonraki_islem=_sonra)
 
 
 async def _studyo_uret(tg: TelegramIstemci, chat_id: int, sku: str, tohum_degistir: bool = False) -> None:
@@ -2148,53 +2470,64 @@ async def _pin_callback(tg: TelegramIstemci, chat_id: int, veri: str) -> None:
         await tg.mesaj_gonder(chat_id, f"❌ `{sku}` ürün klasörü bulunamadı.")
         return
     if eylem == "hazirla":
-        if not await asyncio.to_thread(pinterest_hatti.uygun_mu, sku):
-            await tg.mesaj_gonder(chat_id, f"⚠️ `{sku}` için pin görseli yok — önce teknik poster ya da e-ticaret görselleri.",
-                                  butonlar=_sonraki_adim_butonlari(sku))
-            return
-        pinterest_hatti.pin_yolu(sku).unlink(missing_ok=True)
-        await tg.mesaj_gonder(chat_id, f"📌 `{sku}` — pin hazırlanıyor (görsel, başlık, açıklama, pano)…")
-
-        async def _hazir(_ok: bool, yanit: str, devam: str | None) -> None:
-            pin = await asyncio.to_thread(pinterest_hatti.oku, sku)
-            if not pin or pin.get("durum") != "HAZIR" or not Path(str(pin.get("gorsel"))).exists():
-                await tg.mesaj_gonder(chat_id, "❌ Pin hazırlanamadı.\n" + (yanit or "")[-400:])
-                return
-            metin = (f"📌 *Pinterest önizleme* — `{sku}`\n*{pin.get('baslik')}*\n{pin.get('aciklama')}\n\n"
-                     f"Pano: _{pin.get('pano')}_\nBağlantı: {pin.get('link')}\n"
-                     + ("🤖 'Yapay zeka ile değiştirildi' olarak işaretlenecek." if pin.get("yz_isareti") else ""))
-            await tg.foto_gonder(chat_id, Path(str(pin["gorsel"])).read_bytes(), aciklama=metin[:1000],
-                                 dosya_adi=Path(str(pin["gorsel"])).name,
-                                 butonlar=[[{"text": "✅ Pinterest'te Paylaş", "callback_data": f"pin:paylas:{sku}"}],
-                                           [{"text": "🔁 Yeniden Hazırla", "callback_data": f"pin:hazirla:{sku}"},
-                                            {"text": "❌ Vazgeç", "callback_data": f"pin:iptal:{sku}"}]])
-
-        _ajan_arka_planda_calistir(tg, chat_id, "pinterest-curator", pinterest_hatti.hazirla_istemi(sku),
-                                   gorev_ozeti=f"Pinterest pin hazırlığı: {sku}", sonraki_islem=_hazir)
+        await _pin_hazirla(tg, chat_id, sku)
     elif eylem == "paylas":
-        pin = await asyncio.to_thread(pinterest_hatti.oku, sku)
-        if not pin or pin.get("durum") != "HAZIR":
-            await tg.mesaj_gonder(chat_id, "⚠️ Onaylanacak hazır pin yok.",
-                                  butonlar=[[{"text": "📌 Pin Hazırla", "callback_data": f"pin:hazirla:{sku}"}]])
-            return
-        await tg.mesaj_gonder(chat_id, f"📌 `{sku}` — Pinterest'te yayınlanıyor (Chrome)…")
-
-        async def _bitti(_ok: bool, yanit: str, devam: str | None) -> None:
-            son = await asyncio.to_thread(pinterest_hatti.oku, sku) or {}
-            if son.get("durum") == "PAYLASILDI":
-                await asyncio.to_thread(urun_yaml_guncelle, sku, {"pinterest": {"pin_url": son.get("pin_url"),
-                                                                              "tarih": son.get("tarih"),
-                                                                              "pano": son.get("pano")}})
-                await tg.mesaj_gonder(chat_id, f"✅ Pin yayında: {son.get('pin_url')}", butonlar=_sonraki_adim_butonlari(sku))
-            else:
-                await tg.mesaj_gonder(chat_id, f"❌ Pin yayınlanamadı: {son.get('hata') or (yanit or '')[-300:]}",
-                                      butonlar=[[{"text": "🔁 Tekrar Dene", "callback_data": f"pin:paylas:{sku}"}]])
-
-        _ajan_arka_planda_calistir(tg, chat_id, "pinterest-curator", pinterest_hatti.paylas_istemi(sku),
-                                   gorev_ozeti=f"Pinterest paylaşımı: {sku}", sonraki_islem=_bitti)
+        await _pin_paylas(tg, chat_id, sku)
     elif eylem == "iptal":
         pinterest_hatti.pin_yolu(sku).unlink(missing_ok=True)
         await tg.mesaj_gonder(chat_id, "Pin iptal edildi; Pinterest'e bir şey gönderilmedi.")
+
+
+async def _pin_hazirla(tg: TelegramIstemci, chat_id: int, sku: str, not_: str = "") -> None:
+    """📌 Pin hazırla (pinterest-curator) → önizleme + onay. not_: ✏️ Not ile Güncelle."""
+    if not await asyncio.to_thread(pinterest_hatti.uygun_mu, sku):
+        await tg.mesaj_gonder(chat_id, f"⚠️ `{sku}` için pin görseli yok — önce teknik poster ya da e-ticaret görselleri.",
+                              butonlar=_sonraki_adim_butonlari(sku))
+        return
+    pinterest_hatti.pin_yolu(sku).unlink(missing_ok=True)
+    await tg.mesaj_gonder(chat_id, f"📌 `{sku}` — pin hazırlanıyor (görsel, başlık, açıklama, pano)…")
+
+    async def _hazir(_ok: bool, yanit: str, devam: str | None) -> None:
+        pin = await asyncio.to_thread(pinterest_hatti.oku, sku)
+        if not pin or pin.get("durum") != "HAZIR" or not Path(str(pin.get("gorsel"))).exists():
+            await tg.mesaj_gonder(chat_id, "❌ Pin hazırlanamadı.\n" + (yanit or "")[-400:])
+            return
+        metin = (f"📌 *Pinterest önizleme* — `{sku}`\n*{pin.get('baslik')}*\n{pin.get('aciklama')}\n\n"
+                 f"Pano: _{pin.get('pano')}_\nBağlantı: {pin.get('link')}\n"
+                 + ("🤖 'Yapay zeka ile değiştirildi' olarak işaretlenecek." if pin.get("yz_isareti") else ""))
+        await tg.foto_gonder(chat_id, Path(str(pin["gorsel"])).read_bytes(), aciklama=metin[:1000],
+                             dosya_adi=Path(str(pin["gorsel"])).name,
+                             butonlar=[[{"text": "✅ Pinterest'te Paylaş", "callback_data": f"pin:paylas:{sku}"},
+                                        bekleyen_isler.not_dugmesi("pn", sku)],
+                                       [{"text": "🔁 Yeniden Hazırla", "callback_data": f"pin:hazirla:{sku}"},
+                                        {"text": "❌ Vazgeç", "callback_data": f"pin:iptal:{sku}"}]])
+
+    _ajan_arka_planda_calistir(tg, chat_id, "pinterest-curator", pinterest_hatti.hazirla_istemi(sku, not_=not_),
+                               gorev_ozeti=f"Pinterest pin hazırlığı: {sku}" + (" (notla)" if not_ else ""),
+                               sonraki_islem=_hazir)
+
+
+async def _pin_paylas(tg: TelegramIstemci, chat_id: int, sku: str) -> None:
+    pin = await asyncio.to_thread(pinterest_hatti.oku, sku)
+    if not pin or pin.get("durum") != "HAZIR":
+        await tg.mesaj_gonder(chat_id, "⚠️ Onaylanacak hazır pin yok.",
+                              butonlar=[[{"text": "📌 Pin Hazırla", "callback_data": f"pin:hazirla:{sku}"}]])
+        return
+    await tg.mesaj_gonder(chat_id, f"📌 `{sku}` — Pinterest'te yayınlanıyor (Chrome)…")
+
+    async def _bitti(_ok: bool, yanit: str, devam: str | None) -> None:
+        son = await asyncio.to_thread(pinterest_hatti.oku, sku) or {}
+        if son.get("durum") == "PAYLASILDI":
+            await asyncio.to_thread(urun_yaml_guncelle, sku, {"pinterest": {"pin_url": son.get("pin_url"),
+                                                                          "tarih": son.get("tarih"),
+                                                                          "pano": son.get("pano")}})
+            await tg.mesaj_gonder(chat_id, f"✅ Pin yayında: {son.get('pin_url')}", butonlar=_sonraki_adim_butonlari(sku))
+        else:
+            await tg.mesaj_gonder(chat_id, f"❌ Pin yayınlanamadı: {son.get('hata') or (yanit or '')[-300:]}",
+                                  butonlar=[[{"text": "🔁 Tekrar Dene", "callback_data": f"pin:paylas:{sku}"}]])
+
+    _ajan_arka_planda_calistir(tg, chat_id, "pinterest-curator", pinterest_hatti.paylas_istemi(sku),
+                               gorev_ozeti=f"Pinterest paylaşımı: {sku}", sonraki_islem=_bitti)
 
 
 STUDYO_REVIZE_BASLIGI = "✏️ E-ticaret görsel notu"
@@ -3278,8 +3611,14 @@ async def _kartela_callback(tg: TelegramIstemci, chat_id: int, veri: str, mesaj:
         if basarili:
             await asyncio.to_thread(urun_renklerini_kaydet, sku, basarili)
         BELLEK.kartela.pop(sku, None)
+        for b in basarili:  # render önizlemesi: not ile güncellenebilsin
+            onizleme = URUNLER_KLASORU / sku / b["klasor"] / "studyo.png"
+            if onizleme.exists():
+                await tg.foto_gonder(chat_id, onizleme.read_bytes(), aciklama=f"🎨 `{sku}` — *{b['ad']}* `{b['hex']}`",
+                                     dosya_adi=f"{b['slug']}.png")
         await tg.mesaj_gonder(chat_id, f"✅ Renk kararı: tek renk — {', '.join(r.get('ad') for r in secilen)}.",
-                              butonlar=_sonraki_adim_butonlari(sku))
+                              butonlar=_sonraki_adim_butonlari(sku)
+                              + ([[bekleyen_isler.not_dugmesi("rk", sku)]] if basarili else []))
         return
     if eylem == "cok":
         if len(secilen) < 2:
@@ -3315,14 +3654,18 @@ async def _cok_renk_baslat(tg: TelegramIstemci, chat_id: int, sku: str, not_: st
         satir = "\n".join(f"• *{x.get('ad')}* `{x.get('hex')}` — {x.get('parcalar', '')} (%{paylar[i] if i < len(paylar) else '?'})"
                           for i, x in enumerate(sema.get("renkler") or []))
         uyari = "\n".join(f"⚠️ {u}" for u in rapor.get("uyarilar") or [])
+        deg, deg0 = rapor.get("renk_degisimi_tahmini"), rapor.get("renk_degisimi_sadelestirmeden")
+        degisim = (f"\n🔄 Tahmini renk değişimi: *{deg}*" + (f" (sadeleştirmeden {deg0})" if deg0 and deg0 != deg else "")
+                   if deg is not None else "")
         metin = (f"🎨 *{sku}* — çok renk: *{sema.get('ad', '')}* (Claude, Blender, {sema.get('tur', '?')} tur denetim)\n{satir}\n"
-                 f"_{sema.get('gerekce', '')}_\n🔍 {sema.get('denetim', '')}" + (f"\n{uyari}" if uyari else "")
+                 f"_{sema.get('gerekce', '')}_\n🔍 {sema.get('denetim', '')}{degisim}" + (f"\n{uyari}" if uyari else "")
                  + "\n\nOnaylarsan bu renklerle çok filamentli 3MF dilimlenir; gram, süre ve renk değişimi gelir.")
         pano = k / "boyali_pano.png"
         if pano.exists():
             await tg.foto_gonder(chat_id, pano.read_bytes(), aciklama=f"🎨 `{sku}` — 6 açı (ön, sağ, arka, sol, alttan)",
                                  dosya_adi="cok-renk-pano.png")
-        butonlar = [[{"text": "✅ Onayla → Çok Renk 3MF", "callback_data": f"cokrenk:onay:{sku}"}],
+        butonlar = [[{"text": "✅ Onayla → Çok Renk 3MF", "callback_data": f"cokrenk:onay:{sku}"},
+                     bekleyen_isler.not_dugmesi("cr", sku)],
                     [{"text": "🔁 Başka Renk Şeması", "callback_data": f"cokrenk:yeni:{sku}"},
                      {"text": "⚪ Tek Renk Dilimle", "callback_data": f"cokrenk:tek:{sku}"}]]
         foto = k / "render" / "studyo.png"
@@ -3586,6 +3929,253 @@ async def _yazici_durum_gonder(tg: TelegramIstemci, chat_id: int) -> None:
         await tg.mesaj_gonder(chat_id, ozet, butonlar=butonlar)
 
 
+# --- 📋 Bekleyen İşler · ✏️ Not ile Güncelle · 🗑️ Ürün Sil · 🧹 Klasör Temizliği (Patron isteği 2026-11-18) ---
+async def _bekleyen_isler_gonder(tg: TelegramIstemci, chat_id: int) -> None:
+    isler = await asyncio.to_thread(bekleyen_isler.tara)
+    metin, butonlar = bekleyen_isler.liste_mesaji(isler)
+    await tg.mesaj_gonder(chat_id, metin, butonlar=butonlar)
+
+
+async def _bekleyen_is_goster(tg: TelegramIstemci, chat_id: int, is_id: str) -> None:
+    isler = await asyncio.to_thread(bekleyen_isler.tara)
+    is_ = bekleyen_isler.is_bul(is_id, isler)
+    if not is_:
+        await tg.mesaj_gonder(chat_id, "ℹ️ Bu iş artık bekleyenlerde değil (karar verilmiş ya da kayıt değişmiş).",
+                              butonlar=[[{"text": "📋 Bekleyen İşler", "callback_data": "bk:liste"}]])
+        return
+    if is_["tur"] == "rd":  # Reels denetimi: maddeler ve seçim düğmeleri mevcut kalıpla
+        try:
+            k = await asyncio.to_thread(reels_denetim.oku, is_id.split(":", 1)[1])
+        except (OSError, ValueError):
+            await tg.mesaj_gonder(chat_id, "⚠️ Bu denetim kaydı bulunamadı (eski olabilir).")
+            return
+        alt = [{"text": "📋 Bekleyen İşler", "callback_data": "bk:liste"}]
+        if is_.get("sku"):
+            alt.insert(0, {"text": "📦 Ürün Kartı", "callback_data": f"urunmenu:{is_['sku']}"})
+        await tg.mesaj_gonder(chat_id, reels_denetim.ozet_metni(k)[:3900], butonlar=reels_denetim.butonlar(k) + [alt])
+        return
+    metin, butonlar = bekleyen_isler.is_detayi(is_)
+    await tg.mesaj_gonder(chat_id, metin, butonlar=butonlar)
+
+
+async def _not_istemi_gonder(tg: TelegramIstemci, chat_id: int, tur: str, anahtar: str) -> None:
+    if tur not in bekleyen_isler.NOT_TURLERI:
+        await tg.mesaj_gonder(chat_id, f"❓ Bilinmeyen not işlemi: `{tur}`")
+        return
+    await asyncio.to_thread(
+        tg._json_istek, "sendMessage",
+        {"chat_id": chat_id, "text": bekleyen_isler.not_basligi(tur, anahtar),
+         "reply_markup": {"force_reply": True, "input_field_placeholder": "Güncelleme notu…"}})
+
+
+async def _renk_revize(tg: TelegramIstemci, chat_id: int, sku: str, not_: str) -> None:
+    """✏️ Not ile Güncelle (tek renk render'ı): cad-artist notla Blender render'larını yeniden üretir."""
+    if not await asyncio.to_thread(urun_renkleri, sku):
+        await tg.mesaj_gonder(chat_id, f"⚠️ `{sku}` için kayıtlı tek renk yok; önce kartelada renk seç.",
+                              butonlar=[[{"text": "🎨 Kartela", "callback_data": f"kartela:ac:{sku}"}]])
+        return
+    await tg.mesaj_gonder(chat_id, f"🎨 `{sku}` renk render'ları notunla yeniden üretiliyor (Blender, ~2–5 dk)…")
+
+    async def _sonra(basarili: bool, yanit: str, devam: str | None) -> None:
+        for r in await asyncio.to_thread(urun_renkleri, sku):
+            onizleme = URUNLER_KLASORU / sku / str(r.get("klasor")) / "studyo.png"
+            if onizleme.exists():
+                await tg.foto_gonder(chat_id, onizleme.read_bytes(), aciklama=f"🎨 `{sku}` — *{r.get('ad')}* `{r.get('hex')}`",
+                                     dosya_adi=f"{r.get('slug')}.png")
+        son = (yanit or "").strip().splitlines()[-1:] or [""]
+        await tg.mesaj_gonder(chat_id, f"{'✅' if basarili else '⚠️'} Renk render'ı: `{son[0][:200]}`",
+                              butonlar=[[{"text": "📸 Stüdyo Görselleri", "callback_data": f"icerik:studyo:{sku}"},
+                                         bekleyen_isler.not_dugmesi("rk", sku)],
+                                        [{"text": "📦 Ürün Kartı", "callback_data": f"urunmenu:{sku}"}]]
+                              + _gorev_sonu_butonlari(devam))
+
+    _ajan_arka_planda_calistir(tg, chat_id, "cad-artist", renk_revize_istemi(sku, not_),
+                               gorev_ozeti=f"Renk render'ı (notla): {sku}", sonraki_islem=_sonra)
+
+
+async def _not_ile_guncelle(tg: TelegramIstemci, chat_id: int, tur: str, anahtar: str, not_: str) -> None:
+    """ng:<tür>:<anahtar> yanıtı: notu urun.yaml > revize_notlari'na yazar, ilgili üretimi notla yeniden başlatır."""
+    sku, sira = bekleyen_isler.anahtar_coz(anahtar)
+    if not sku or not (URUNLER_KLASORU / sku).is_dir():
+        await tg.mesaj_gonder(chat_id, f"❌ `{sku}` ürün klasörü bulunamadı.")
+        return
+    await asyncio.to_thread(bekleyen_isler.revize_notu_ekle, sku, tur, not_)
+    await tg.mesaj_gonder(chat_id, f"📝 Not kaydedildi (`{sku}` · {bekleyen_isler.NOT_TURLERI[tur]}); notla yeniden "
+                                   "üretiliyor.")
+    if tur == "kf":
+        bilgi = await asyncio.to_thread(fikir_bilgisi, sku)
+        await asyncio.to_thread(urun_yaml_guncelle, sku, {"revize_notu": not_})
+        await _fikir_konsept_baslat(tg, chat_id, sku, bilgi["tarif"], revize_notu=not_)
+    elif tur == "ks":
+        liste = await asyncio.to_thread(konseptler)
+        if sira is None or sira >= len(liste):
+            await tg.mesaj_gonder(chat_id, "❌ Konsept bulunamadı (kütüphane değişmiş olabilir).",
+                                  butonlar=[[{"text": "🎨 Konseptler", "callback_data": f"konsept:liste:{sku}"}]])
+            return
+        await _konsept_uret(tg, chat_id, sku, liste[sira], not_=not_)
+    elif tur == "hf":
+        await _hf_reels_baslat(tg, chat_id, sku, konu=not_)
+    elif tur == "cr":
+        await _cok_renk_baslat(tg, chat_id, sku, not_=not_, zorunlu=BELLEK.cok_renk_zorunlu.get(sku) or None)
+    elif tur == "rk":
+        urun = await asyncio.to_thread(urun_yaml_oku, sku)
+        if ((urun.get("cok_renk") or {}) if isinstance(urun.get("cok_renk"), dict) else {}).get("karar") == "onay":
+            await _cok_renk_baslat(tg, chat_id, sku, not_=not_)  # geçerli renk çok renk render'ı
+        else:
+            await _renk_revize(tg, chat_id, sku, not_)
+    elif tur == "pn":
+        await _pin_hazirla(tg, chat_id, sku, not_=not_)
+    elif tur == "kt":
+        await _kt_baslat(tg, chat_id, sku, not_=not_)
+    elif tur == "mg":
+        if not (URUNLER_KLASORU / sku / "uretim" / f"{sku}.gcode").exists():
+            await tg.mesaj_gonder(chat_id, f"⚠️ `{sku}` henüz dilimlenmedi; fiyat gerçek G-code'dan hesaplanır.",
+                                  butonlar=[[{"text": "⚙️ Dilimle → 3MF", "callback_data": f"orca:analiz:{sku}"}]])
+            return
+        paket, _ = await asyncio.to_thread(paket_oku, sku)
+        try:
+            fire = int(float(((paket or {}).get("maliyet") or {}).get("fire_yuzde") or 10))
+        except (TypeError, ValueError):
+            fire = 10
+        await _magaza_paketi_hazirla(tg, chat_id, sku, fire, not_=not_)
+
+
+def _silme_butonlari() -> list[list[dict[str, str]]]:
+    d = BELLEK.urun_silme
+    secili = d.get("secili") or set()
+    satirlar = [[{"text": ("☑ " if u["sku"] in secili else "☐ ") + f"{u['ad'][:30]} · {klasor_temizlik.boyut_metni(u['boyut'])}",
+                  "callback_data": f"usil:s:{i}"}] for i, u in enumerate(d.get("liste") or [])]
+    satirlar.append([{"text": f"🗑️ Seçilenleri Sil ({len(secili)})", "callback_data": "usil:onay"},
+                     {"text": "❌ Vazgeç", "callback_data": "usil:iptal"}])
+    return satirlar
+
+
+async def _urun_sil_callback(tg: TelegramIstemci, chat_id: int, veri: str, mesaj: dict[str, Any]) -> None:
+    """🗑️ Ürün Sil: yalnız satışta OLMAYAN ve içeriği onaylanmamış ürünler; iki aşamalı onay; çöp kutusuna taşır."""
+    parca = veri.split(":")
+    eylem = parca[1] if len(parca) > 1 else ""
+    d = BELLEK.urun_silme
+    if eylem == "liste":
+        liste = await asyncio.to_thread(klasor_temizlik.silinebilir_urunler)
+        BELLEK.urun_silme = {"liste": liste[:40], "secili": set()}
+        if not liste:
+            await tg.mesaj_gonder(chat_id, "ℹ️ Silinebilecek ürün yok (satıştaki ve içeriği onaylı ürünler silinemez).")
+            return
+        await tg.mesaj_gonder(chat_id, "🗑️ *Ürün Sil* — yalnız satışta olmayan ve içeriği onaylanmamış ürünler.\n"
+                                       "Silinecekleri seç (☐ → ☑). Klasör çöp kutusuna taşınır, oradan geri alınabilir.",
+                              butonlar=_silme_butonlari())
+        return
+    if not d.get("liste"):
+        await tg.mesaj_gonder(chat_id, "⚠️ Seçim süresi doldu (bot yeniden başlamış olabilir); listeyi yeniden aç.",
+                              butonlar=[[{"text": "🗑️ Ürün Sil", "callback_data": "usil:liste"}]])
+        return
+    if eylem == "s" and len(parca) > 2 and parca[2].isdigit() and int(parca[2]) < len(d["liste"]):
+        d["secili"] ^= {d["liste"][int(parca[2])]["sku"]}
+        await tg.klavye_guncelle(chat_id, mesaj.get("message_id"), _silme_butonlari())
+        return
+    if eylem == "iptal":
+        BELLEK.urun_silme = {}
+        await tg.klavye_temizle(chat_id, mesaj.get("message_id"))
+        await tg.mesaj_gonder(chat_id, "👍 Silme iptal edildi; hiçbir şey silinmedi.")
+        return
+    secilenler = [u for u in d["liste"] if u["sku"] in (d.get("secili") or set())]
+    if eylem == "onay":
+        if not secilenler:
+            await tg.mesaj_gonder(chat_id, "ℹ️ Önce silinecek ürünleri seç (☐ → ☑).")
+            return
+        await tg.mesaj_gonder(chat_id, klasor_temizlik.silme_ozeti(secilenler),
+                              butonlar=[[{"text": "✅ Evet, sil", "callback_data": "usil:evet"},
+                                         {"text": "❌ Vazgeç", "callback_data": "usil:iptal"}]])
+        return
+    if eylem == "evet":
+        await tg.klavye_temizle(chat_id, mesaj.get("message_id"))
+        mesgul = {k["sku"] for k in BELLEK.yerel_isler.values()}
+        engel_mesgul = [u["sku"] for u in secilenler if u["sku"] in mesgul]
+        skular = [u["sku"] for u in secilenler if u["sku"] not in mesgul]
+        sonuc = await asyncio.to_thread(klasor_temizlik.urun_sil, skular)
+        BELLEK.urun_silme = {}
+        satirlar = [f"🗑️ {len(sonuc['tasinan'])} ürün çöp kutusuna taşındı"
+                    + (f" (`{sonuc.get('cop')}`)" if sonuc.get("cop") else "") + ":"]
+        satirlar += [f"• `{p.name}`" for p in sonuc["tasinan"]]
+        satirlar += [f"⛔ `{sku}` silinmedi: {neden}" for sku, neden in sonuc["engellenen"]]
+        satirlar += [f"⏳ `{sku}` silinmedi: üzerinde çalışan iş var" for sku in engel_mesgul]
+        satirlar += [f"❌ `{p.name}` taşınamadı" for p in sonuc["hatalar"]]
+        await tg.mesaj_gonder(chat_id, "\n".join(satirlar), butonlar=[[{"text": "📦 Ürünlerim", "callback_data": "menu:urunler"}]])
+
+
+def _temizlik_butonlari() -> list[list[dict[str, str]]]:
+    secili = BELLEK.temizlik.get("secili") or set()
+    tarama = BELLEK.temizlik.get("tarama") or {}
+    satirlar = [[{"text": ("☑ " if k in secili else "☐ ") + baslik[:40]
+                  + f" · {klasor_temizlik.boyut_metni(sum(a['boyut'] for a in tarama.get(k) or []))}",
+                  "callback_data": f"tmz:s:{k}"}] for k, (baslik, _) in klasor_temizlik.KATEGORILER.items()
+                if tarama.get(k)]
+    satirlar.append([{"text": f"🗑️ Seçilenleri Temizle ({len(secili)})", "callback_data": "tmz:onay"},
+                     {"text": "❌ Vazgeç", "callback_data": "tmz:iptal"}])
+    return satirlar
+
+
+def _temizlik_tara_arg() -> dict[str, Any]:
+    mesgul = {k["sku"] for k in BELLEK.yerel_isler.values()}
+    mesgul |= {s for s in _mevcut_skulari_listele() for g in BELLEK.aktif_gorevler.values() if s in str(g.get("ozet", ""))}
+    video = any("Reels" in str(g.get("ozet", "")) for g in BELLEK.aktif_gorevler.values())
+    return {"mesgul": mesgul, "video_mesgul": video}
+
+
+async def _temizlik_callback(tg: TelegramIstemci, chat_id: int, veri: str, mesaj: dict[str, Any]) -> None:
+    """🧹 Klasör Temizliği: KURU tarama → kategori seçimi → iki aşamalı onay → çöp kutusu."""
+    parca = veri.split(":")
+    eylem = parca[1] if len(parca) > 1 else ""
+    if eylem == "tara":
+        await tg.mesaj_gonder(chat_id, "🔍 Klasörler taranıyor (hiçbir şey silinmez)…")
+        arg = _temizlik_tara_arg()
+        tarama = await asyncio.to_thread(lambda: klasor_temizlik.tara(**arg))
+        BELLEK.temizlik = {"tarama": tarama, "secili": set()}
+        if not any(tarama.values()):
+            await tg.mesaj_gonder(chat_id, "✨ Temizlenecek ara dosya / onaylanmamış görsel bulunmadı.")
+            return
+        not_ = ("\n⏳ Çalışan iş olan ürünler" + (" ve Video Atölyesi" if arg["video_mesgul"] else "")
+                + " taramaya alınmadı." if arg["mesgul"] or arg["video_mesgul"] else "")
+        await tg.mesaj_gonder(chat_id, klasor_temizlik.tarama_ozeti(tarama) + not_, butonlar=_temizlik_butonlari())
+        return
+    d = BELLEK.temizlik
+    if not d.get("tarama"):
+        await tg.mesaj_gonder(chat_id, "⚠️ Tarama süresi doldu; yeniden tara.",
+                              butonlar=[[{"text": "🧹 Klasör Temizliği", "callback_data": "tmz:tara"}]])
+        return
+    if eylem == "s" and len(parca) > 2 and parca[2] in klasor_temizlik.KATEGORILER:
+        d["secili"] ^= {parca[2]}
+        await tg.klavye_guncelle(chat_id, mesaj.get("message_id"), _temizlik_butonlari())
+        return
+    if eylem == "iptal":
+        BELLEK.temizlik = {}
+        await tg.klavye_temizle(chat_id, mesaj.get("message_id"))
+        await tg.mesaj_gonder(chat_id, "👍 Temizlik iptal edildi; hiçbir şey silinmedi.")
+        return
+    if eylem == "onay":
+        if not d.get("secili"):
+            await tg.mesaj_gonder(chat_id, "ℹ️ Önce temizlenecek kategorileri seç (☐ → ☑).")
+            return
+        await tg.mesaj_gonder(chat_id, klasor_temizlik.onay_ozeti(d["tarama"], d["secili"])[:3900],
+                              butonlar=[[{"text": "✅ Evet, çöpe taşı", "callback_data": "tmz:evet"},
+                                         {"text": "❌ Vazgeç", "callback_data": "tmz:iptal"}]])
+        return
+    if eylem == "evet":
+        await tg.klavye_temizle(chat_id, mesaj.get("message_id"))
+        secili, onceki = set(d.get("secili") or set()), d["tarama"]
+        BELLEK.temizlik = {}
+        arg = _temizlik_tara_arg()
+        sonuc = await asyncio.to_thread(lambda: klasor_temizlik.temizle(secili, onceki, **arg))
+        metin = (f"🧹 {len(sonuc['tasinan'])} öğe ({klasor_temizlik.boyut_metni(sonuc['bayt'])}) çöp kutusuna taşındı"
+                 + (f" (`{sonuc.get('cop')}`)" if sonuc.get("cop") else "") + ".")
+        if sonuc["hatalar"]:
+            metin += f"\n❌ {len(sonuc['hatalar'])} öğe taşınamadı."
+        if "npm" in secili and sonuc["tasinan"]:
+            metin += "\nℹ️ node_modules gerektiğinde HyperFrames işi `npm ci` ile yeniden kurar."
+        await tg.mesaj_gonder(chat_id, metin)
+
+
+
 async def mesaj_isle(tg: TelegramIstemci, mesaj: dict[str, Any], yetkili_chat_id: int) -> None:
     chat_id = int((mesaj.get("chat") or {}).get("id") or 0)
     if yetkili_chat_id and chat_id != yetkili_chat_id:
@@ -3734,15 +4324,31 @@ async def mesaj_isle(tg: TelegramIstemci, mesaj: dict[str, Any], yetkili_chat_id
             return
         await _fiyat_karari_uygula_ve_goster(tg, chat_id, m_sku.group(1), paket, secilen_tl=tl)
         return
+    if metin and not metin.startswith("/") and yanitlanan.startswith(bekleyen_isler.GUNCELLEME_NOTU_BASLIGI):
+        coz = bekleyen_isler.not_basligi_coz(yanitlanan)
+        if not coz:
+            await tg.mesaj_gonder(chat_id, "⚠️ Bu not hangi işe ait anlaşılamadı; düğmeye yeniden bas.")
+            return
+        await _not_ile_guncelle(tg, chat_id, coz[0], coz[1], metin)
+        return
     if metin and not metin.startswith("/") and yanitlanan.startswith(STUDYO_REVIZE_BASLIGI):
         m_sku = re.search(r"\[([a-z0-9-]+)\]", yanitlanan)
         if m_sku and (URUNLER_KLASORU / m_sku.group(1)).is_dir():
+            await asyncio.to_thread(bekleyen_isler.revize_notu_ekle, m_sku.group(1), "es", metin)
             await _studyo_denetle(tg, chat_id, m_sku.group(1), not_=metin)
             return
+    if metin and not metin.startswith("/") and yanitlanan.startswith(REELS_NOT_BASLIGI):
+        m_kid = re.search(r"\[([0-9a-f]{8})\]", yanitlanan)
+        if m_kid and reels_denetim.kayit_yolu(m_kid.group(1)).exists():
+            await _reels_duzelt(tg, chat_id, m_kid.group(1), not_=metin)
+        else:
+            await tg.mesaj_gonder(chat_id, "⚠️ Bu Reels kaydı bulunamadı (eski olabilir).")
+        return
     if metin and not metin.startswith("/") and yanitlanan.startswith(ICERIK_REVIZE_BASLIGI):
         m_sku = re.search(r"\[([a-z0-9-]+)\]", yanitlanan)
         if m_sku and (URUNLER_KLASORU / m_sku.group(1)).is_dir():
             await asyncio.to_thread(urun_yaml_guncelle, m_sku.group(1), {"icerik_revize_notu": metin})
+            await asyncio.to_thread(bekleyen_isler.revize_notu_ekle, m_sku.group(1), "ic", metin)
             # İçerik notu kullanım görseli/Reels içindir (stüdyo karelerinin kendi revizesi var). Numune yoksa
             # stüdyo karesinden (numunesiz) üret — eskiden burada stüdyo kareleri yeniden üretiliyor, not kayboluyordu.
             numune_var = await asyncio.to_thread(numune_fotograflari, m_sku.group(1))
@@ -3782,6 +4388,18 @@ async def mesaj_isle(tg: TelegramIstemci, mesaj: dict[str, Any], yetkili_chat_id
         await _bakim_listesi_gonder(tg, chat_id)
         return
 
+    if komut == "/bekleyen":
+        await _bekleyen_isler_gonder(tg, chat_id)
+        return
+
+    if komut == "/temizlik":
+        await _temizlik_callback(tg, chat_id, "tmz:tara", {})
+        return
+
+    if komut == "/guvenlik_testi":
+        await _guvenlik_testi_baslat(tg, chat_id, arg_metin)
+        return
+
     if komut == "/kilavuz":
         k_metin, k_butonlar = kilavuz_dizini()
         await tg.mesaj_gonder(chat_id, k_metin, butonlar=k_butonlar)
@@ -3794,7 +4412,7 @@ async def mesaj_isle(tg: TelegramIstemci, mesaj: dict[str, Any], yetkili_chat_id
             "⚙️ Dilimle (3MF) → 🎨 Renk → 🎬 Görsel & İçerik → 📋 Onay ② → 🛒 Mağazaya Hazırla (fiyat seçimi) "
             "→ 🚀 Yükle\n\n"
             "Her ürünün işlemleri *📦 Ürünlerim* içindeki ürün kartında.\n"
-            "Komutlar: /trend /fikir /urunler /durum /ozet /stok /kuyruk /gorevler /iptal\n"
+            "Komutlar: /trend /fikir /urunler /bekleyen /temizlik /durum /ozet /stok /kuyruk /gorevler /iptal\n"
             "📖 Ayrıntılı anlatım: /kilavuz\n"
             "_Düz mesaj yazarsan aktif ajana gider (🤖 Ajanlarla Konuş)._"
         )
@@ -3819,7 +4437,7 @@ async def mesaj_isle(tg: TelegramIstemci, mesaj: dict[str, Any], yetkili_chat_id
 
     elif komut in ("/ajan", "/ajanlar"):
         if not argumanlar:
-            satirlar = ["🤖 *21 Uzman Ajan Kadrosu (`.claude/agents/`)*\n"]
+            satirlar = ["🤖 *22 Uzman Ajan Kadrosu (`.claude/agents/`)*\n"]
             for kod, (unvan, dept) in AJAN_KATALOGU.items():
                 satirlar.append(f"• `{kod}` — {unvan} _({dept})_")
             satirlar.append("\n💡 Bir ajana doğrudan emir vermek için:\n`/ajan <ajan-kodu> <mesajınız>`\nveya aşağıdan seçin:")
@@ -3982,6 +4600,18 @@ async def mesaj_isle(tg: TelegramIstemci, mesaj: dict[str, Any], yetkili_chat_id
                                                   or "Henüz konsept yok.")
             + "\n\nÜrüne uygulamak: ürün kartı → 🎨 Konsept Görsel + Reels",
             butonlar=[[{"text": "➕ Yeni Konsept Ekle", "callback_data": "konsept:ekle"}]])
+
+    elif komut == "/hfreels":
+        if not arg_metin:
+            await tg.mesaj_gonder(chat_id, "🎞️ Kullanım: `/hfreels <konu>` (serbest Reels, ör. `/hfreels atölyede bir gün`) "
+                                           "ya da `/hfreels <sku>` (ürün Reels'i). Ürün kartında da *🎞️ HyperFrames Reels* var.")
+            return
+        aday = arg_metin.strip().split()[0]
+        if (URUNLER_KLASORU / aday / "urun.yaml").exists():
+            await _hf_reels_baslat(tg, chat_id, aday, arg_metin.strip()[len(aday):].strip())
+        else:
+            await _hf_reels_baslat(tg, chat_id, None, arg_metin.strip())
+        return
 
     elif komut == "/reels":
         if arg_metin.lower() in ("takvim", "ac", "aç"):
@@ -4179,6 +4809,28 @@ async def callback_isle(tg: TelegramIstemci, cb: dict[str, Any], yetkili_chat_id
     if veri.startswith("urunmenu:"):
         await _urun_karti_gonder(tg, chat_id, veri.split(":", 1)[1])
         return
+    if veri == "bk:liste":
+        await _bekleyen_isler_gonder(tg, chat_id)
+        return
+    if veri.startswith("bk:g:"):
+        await _bekleyen_is_goster(tg, chat_id, veri.split(":", 2)[2])
+        return
+    if veri.startswith("ng:"):
+        parca = veri.split(":", 2)
+        if len(parca) == 3:
+            await _not_istemi_gonder(tg, chat_id, parca[1], parca[2])
+        return
+    if veri.startswith("usil:"):
+        await _urun_sil_callback(tg, chat_id, veri, mesaj)
+        return
+    if veri.startswith("kt:"):
+        await _kt_callback(tg, chat_id, veri)
+        return
+    if veri.startswith(("orca:analiz:", "magaza:hazirla:")):  # kullanım testi onaysızsa uyarı (engellemez)
+        await _kt_uyarisi(tg, chat_id, veri.split(":", 2)[2].split(":")[0])
+    if veri.startswith("tmz:"):
+        await _temizlik_callback(tg, chat_id, veri, mesaj)
+        return
 
     if veri.startswith("teklif:"):
         await _teklif_callback(tg, chat_id, veri)
@@ -4280,7 +4932,7 @@ async def callback_isle(tg: TelegramIstemci, cb: dict[str, Any], yetkili_chat_id
         return
 
     if veri == "ajan:liste":
-        satirlar = ["🤖 *21 Uzman Ajan Kadrosu*\n"]
+        satirlar = ["🤖 *22 Uzman Ajan Kadrosu*\n"]
         for kod, (unvan, dept) in AJAN_KATALOGU.items():
             satirlar.append(f"• `{kod}` — {unvan} _({dept})_")
         satirlar.append("\nBir ajana bağlanmak için `/ajan <kod>` yazabilirsiniz.")
@@ -4386,6 +5038,8 @@ async def callback_isle(tg: TelegramIstemci, cb: dict[str, Any], yetkili_chat_id
                 ref.tahmini_gram = fire_grami(ref.tahmini_gram, ref.ilerleme_yuzde)
             sonuc = await ERP.baski_sonucu_isle(senaryo=senaryo, ref=ref)
             BELLEK.bekleyen_baskilar.pop(kayit_id, None)
+            is_videosu = await asyncio.to_thread(baski_video.is_videosu_kopyala, senaryo, ref.eslesen_sku,
+                                                 ref.ham_dosya_adi)
             if senaryo == "IS_NUMUNE" and ref.eslesen_sku:
                 await asyncio.to_thread(
                     tg._json_istek, "sendMessage",
@@ -4394,6 +5048,8 @@ async def callback_isle(tg: TelegramIstemci, cb: dict[str, Any], yetkili_chat_id
                 )
 
             metin = f"*{sonuc.baslik}*\n\n{sonuc.ozet_mesaj}"
+            if is_videosu:
+                metin += f"\n\n🎥 Baskı timelapse'i kaydedildi: `{is_videosu}`"
             if sonuc.kritik_stok_uyarilari:
                 metin += "\n\n🚨 *Kritik Stok Uyarısı:*\n" + "\n".join(f"• {u}" for u in sonuc.kritik_stok_uyarilari)
 
@@ -4425,6 +5081,37 @@ async def callback_isle(tg: TelegramIstemci, cb: dict[str, Any], yetkili_chat_id
 
     if veri == "durdur:iptal":
         await tg.mesaj_gonder(chat_id, "✅ Baskıya devam ediliyor.")
+        return
+
+    if veri.startswith("rd:"):
+        parca = veri.split(":")
+        islem, kid = parca[1], parca[2]
+        try:
+            if islem == "sec":
+                k = await asyncio.to_thread(reels_denetim.secimi_degistir, kid, int(parca[3]))
+                await tg.klavye_guncelle(chat_id, mesaj.get("message_id"), reels_denetim.butonlar(k))
+            elif islem == "hepsi":
+                k = await asyncio.to_thread(reels_denetim.hepsini_sec, kid)
+                await tg.klavye_guncelle(chat_id, mesaj.get("message_id"), reels_denetim.butonlar(k))
+            elif islem == "not":
+                await asyncio.to_thread(
+                    tg._json_istek, "sendMessage",
+                    {"chat_id": chat_id, "text": f"{REELS_NOT_BASLIGI} [{kid}]: ne değişsin? (ör. 'ilk sahne daha hızlı, "
+                     "ölçü yazısı büyüsün, müzik daha sakin')",
+                     "reply_markup": {"force_reply": True, "input_field_placeholder": "Düzeltme notu…"}})
+            elif islem == "kapat":
+                await asyncio.to_thread(reels_denetim.kapat, kid)
+                await tg.klavye_temizle(chat_id, mesaj.get("message_id"))
+                await tg.mesaj_gonder(chat_id, "👍 Reels olduğu gibi kaldı.")
+            elif islem == "uygula":
+                await tg.klavye_temizle(chat_id, mesaj.get("message_id"))
+                await _reels_duzelt(tg, chat_id, kid)
+        except (OSError, ValueError, KeyError):
+            await tg.mesaj_gonder(chat_id, "⚠️ Bu denetim kaydı bulunamadı (eski olabilir).")
+        return
+
+    if veri.startswith("hf:urun:"):
+        await _hf_reels_baslat(tg, chat_id, veri.split(":", 2)[2])
         return
 
     if veri.startswith("flow:uret:"):
@@ -4630,7 +5317,16 @@ async def reels_dongusu(tg: TelegramIstemci, chat_id: int) -> None:
                         return
                     satirlar = "\n".join(f"• {f.get('tarih') or 'tarihsiz'} — {f.get('baslik')}" for f in islenen)
                     baslik = "✏️ Reels fikri revize edildi" if istek["tur"] == "revize" else f"🎬 {len(islenen)} yeni Reels fikri takvimde"
-                    await tg.mesaj_gonder(chat_id, f"{baslik}:\n{satirlar}\n\nSenaryo ve talimatlar: {reels_takvim.SAYFA}")
+                    await tg.mesaj_gonder(chat_id, f"{baslik}:\n{satirlar}\n\nSenaryo ve talimatlar: {reels_takvim.SAYFA}"
+                                                   "\n📅 Google Takvim'ine ekleniyor…")
+                    gcal = await asyncio.to_thread(reels_takvim.gcal_istemi, islenen)
+                    if gcal:
+                        async def _gcal_sonra(ok: bool, y: str, d: str | None) -> None:
+                            son = (y or "").strip().splitlines()[-1:] or [""]
+                            await tg.mesaj_gonder(chat_id, ("📅 Google Takvim güncellendi. " if "GCAL_TAMAM" in son[0]
+                                                            else "⚠️ Google Takvim eşitlenemedi. ") + f"`{son[0][:120]}`")
+                        _ajan_arka_planda_calistir(tg, chat_id, "reels-tiktok-strategist", gcal, model="sonnet",
+                                                   gorev_ozeti="Reels → Google Takvim", sonraki_islem=_gcal_sonra)
 
                 izlenen[istek["id"]] = _ajan_arka_planda_calistir(
                     tg, chat_id, "reels-tiktok-strategist", await asyncio.to_thread(reels_takvim.istem, istek),
@@ -4722,8 +5418,8 @@ async def ana_dongu() -> None:
     if not ayar.telegram_bot_token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN bulunamadı!")
     if not ayar.telegram_chat_id:
-        # Güvenlik: sohbet kimliği olmadan bot herkese açık olur (ajanlar araç izniyle çalışır) — başlatma.
-        raise RuntimeError("TELEGRAM_CHAT_ID ayarlı değil! Botu yalnız kendi sohbetinize kilitlemek için .env'e yazın.")
+        # Güvenlik: yetkili sohbet tanımlı değilse bot herkese açık çalışmaz (fail-closed).
+        raise RuntimeError("TELEGRAM_CHAT_ID tanımlı değil — bot yalnız Patronun sohbetine yanıt verir, başlatılmadı.")
 
     tg = TelegramIstemci(ayar.telegram_bot_token)
     log.info("COO Telegram Botu (v2.1 — Claude Opus 5.5 Köprülü) başlatıldı (Chat ID: %s)", ayar.telegram_chat_id)

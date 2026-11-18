@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 import trimesh
 import yaml
 from PIL import Image
@@ -14,6 +16,7 @@ from coo.kalite_kapisi import kalite_kontrol_et
 
 
 def test_kalite_kapisi_kaba_kutu_reddeder_pahli_kabul_eder(tmp_path: Path) -> None:
+    pytest.importorskip("build123d")  # isteğe bağlı CAD ortamı (pip install .[cad])
     from build123d import Align, Box, export_stl, fillet
 
     kaba_stl = tmp_path / "kaba.stl"

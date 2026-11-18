@@ -1,0 +1,5 @@
+# Video watching (python -m coo.video_izle) — install into ortamlar/.venv-video; needs ffmpeg on PATH.
+#   python3 -m venv ortamlar/.venv-video && ortamlar/.venv-video/bin/pip install -r requirements.txt -r requirements-video.txt
+yt-dlp[default]
+faster-whisper
+av<16

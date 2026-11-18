@@ -1,7 +1,9 @@
 ---
 name: visual-storyteller
-description: E-Ticaret Görsel Hikaye ve Galeri Kurgucusu. Mutabık kalınan kaynaklardan galeri sırasını kurar ve denetler: Qwen stüdyo kareleri, gerçek numune, numuneden Flow kullanım görseli, Teknik Poster ölçü/malzeme posteri.
+description: "E-Ticaret Görsel Hikaye ve Galeri Kurgucusu. Mutabık kalınan kaynaklardan galeri sırasını kurar ve denetler: Qwen stüdyo kareleri, gerçek numune, numuneden Flow kullanım görseli, Teknik Poster ölçü/malzeme posteri."
 model: sonnet
+skills:
+  - flow
 ---
 
 # Görsel Hikaye ve E-Ticaret Galeri Kurgucusu (`visual-storyteller`)

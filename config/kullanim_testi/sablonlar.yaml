@@ -1,0 +1,73 @@
+# Kullanım testi — ürün türü şablonları (vaat → ölçülebilir kural).
+# Ürün `urun.yaml > kullanim_testi:` altında `sablon:` seçer; `nesneler`, `kurallar`, `fizik`, `yerlesim`,
+# `yonler`, `kilif`, `kapasite` alanlarını EZEBİLİR (derin birleştirme). Motor: coo/kullanim_testi.py.
+#
+# Tüm fizik değerleri VARSAYIMDIR (ölçülmedi) ve her raporda "varsayimlar" altında aynen yazılır.
+
+fizik:
+  pla_yogunluk_g_cm3: 1.24       # PLA katı yoğunluğu (filament üretici veri sayfalarındaki tipik değer)
+  dolgu_yuzde: 15                # urun.yaml > dilimleme.dolgu_yuzde varsa o kullanılır
+  duvar_mm: 1.26                 # 3 duvar × 0.42 mm (urun.yaml > dilimleme.duvar_sayisi varsa yeniden hesaplanır)
+  surtunme:                      # Coulomb μ (MuJoCo temas çiftinde büyük olan alınır)
+    pla: 0.30
+    masa: 0.35
+    telefon: 0.30
+    oyun_kolu: 0.45
+    kulaklik: 0.45
+  zaman_adimi_s: 0.0005
+  birakma_yuksekligi_mm: 25      # nesne yerleşim noktasının bu kadar üstünden bırakılır
+  oturma_suresi_s: 2.0           # bırakmadan sonra konumun ölçüldüğü an
+  dinlenme_hiz_mm_s: 6           # son 0.3 sn ortalama hız bunun altındaysa "durdu"
+  egme_acilari_derece: [5, 10]   # masa ±x, ±y yönünde eğilir (yerçekimi döndürülerek)
+  egme_suresi_s: 2.0
+  sarsma: {genlik_m_s2: 1.5, frekans_hz: 3.0, sure_s: 2.0}   # masa yatay titreşimi (x ve y ayrı)
+  dokunma: {kuvvet_n: 3.0, sure_s: 1.0}
+  stand_donme_siniri_derece: 3.0 # dinamik testlerde standın kendi ekseninden dönmesi bu sınırı aşarsa "devrildi"
+
+sablonlar:
+
+  kulaklik_standi:
+    vaat: 'Kulaklık bandından asılı durur; kupalar masaya değmez (her boyda); takılıyken set devrilmez.'
+    nesneler: [kulaklik]               # tüm varyantlar (kompakt / airpods_max / buyuk_uzatilmis)
+    yerlesim: {yontem: tepe}           # bant yayı standın en üst bölgesine, uzun eksen boyunca bırakılır
+    kurallar:
+      yerlesme: {gerekli: true}                        # bırakıldıktan sonra standda durur, masaya düşmez
+      kupa_masa_mesafesi_mm: {min: 10}                 # her varyantta kupa altı masadan en az 10 mm yukarıda
+      bant_temasi: {gerekli: true}                     # yük bant üzerinden taşınır (kupalarla taşınmaz)
+      devrilme_acisi_derece: {min: 10}                 # stand+kulaklık birleşik ağırlık merkezi, en zayıf yön
+      egme: {nesne_kayma_mm_max: 5, zorunlu_aci_derece: 5}   # 10° zorlayıcı test: raporlanır, sonucu etkilemez
+      sarsma: {nesne_kayma_mm_max: 10}
+
+  kontrolcu_standi:
+    vaat: 'Oyun kolu yuvaya oturur, bırakınca kalır; tetik ve analog çubuklar standa değmez; set devrilmez.'
+    nesneler: [dualsense, xbox_series]
+    kapasite: 1                        # iki kollu standda 2 yazılır (ikinci kol ayrı yerleşimle denenir)
+    yerlesim:
+      yontem: tarama                   # ön→arka y taraması × eğim açıları; ilk temas standla olmalı
+      egimler_derece: [0, 20, 40, 60, 75]
+      adim_mm: 6
+    kurallar:
+      yerlesme: {gerekli: true}
+      yasak_temas: {parcalar: [tetik, cubuk], min_mesafe_mm: 0.5}
+      devrilme_acisi_derece: {min: 10}
+      egme: {nesne_kayma_mm_max: 5, zorunlu_aci_derece: 5}   # 10° zorlayıcı test: raporlanır, sonucu etkilemez
+      sarsma: {nesne_kayma_mm_max: 10}
+
+  telefon_standi:
+    vaat: 'Telefon kaymadan/düşmeden durur; ekran rahat görüş açısında; alt kenarda şarj kablosu takılabilir;
+      kılıflı telefon da sığar; ekrana dokununca devrilmez.'
+    nesneler: [iphone_16, iphone_17_pro_max]          # en küçük ve en büyük güncel gövde
+    kilif: [false, true]                              # kılıfsız ve kılıflı
+    yonler: [dik]                                     # ürün "dik + yatay" vaat ediyorsa [dik, yatay]
+    yerlesim:
+      yontem: tarama
+      egimler_derece: [60, 68, 76]                    # telefon arkaya yaslanmış başlangıç açısı (yataydan)
+      adim_mm: 4
+    kurallar:
+      yerlesme: {gerekli: true}
+      gorus_acisi_derece: {min: 55, max: 75}          # ekran düzleminin yataydan açısı
+      kablo_boslugu: {gerekli: true}                  # yalnız dik yönde; fiş zarfı nesneler.yaml > sarj_fisi
+      devrilme_acisi_derece: {min: 8}
+      dokunma: {nesne_kayma_mm_max: 3}                # ekranın üst üçte birine ekrana dik 3 N
+      egme: {nesne_kayma_mm_max: 5, zorunlu_aci_derece: 5}   # 10° zorlayıcı test: raporlanır, sonucu etkilemez
+      sarsma: {nesne_kayma_mm_max: 8}

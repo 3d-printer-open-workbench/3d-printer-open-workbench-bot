@@ -1,0 +1,149 @@
+# Kullanım testi — referans nesne kütüphanesi (coo/kullanim_testi.py okur)
+#
+# Kural: her ölçünün yanında kaynak URL'si + erişim tarihi bulunur. Üretici sayfasında doğrulanamayan veya
+# bizim türettiğimiz/varsaydığımız değer `dogrulanmadi: true` ile işaretlenir ve raporda "varsayım" diye yazılır.
+# Birim: mm, g. Nesne yerel ekseni: x = genişlik, y = boy (telefon: alt kenar −y, üst +y; kol: tutamaklar +y),
+# z = kalınlık (ekran / yüz +z).
+#
+# Geometri, ölçüye sadık ama BASİT ilkel bileşimidir (kutu, kapsül, elipsoid, silindir). Gerçek ürünün
+# eğrileri, düğmeleri ve doku ayrıntısı yoktur; dış zarf (bounding box) ve kütle resmi değere sadıktır.
+
+surum: 1
+guncelleme: '2026-11-18'
+
+nesneler:
+
+  # ------------------------------------------------------------------------------------------------ telefonlar
+  # Kaynak: Apple iPhone karşılaştırma sayfası (resmi), erişim 2026-11-18.
+  iphone_15:
+    tip: telefon
+    ad: iPhone 15
+    olcu: {genislik: 71.6, yukseklik: 147.6, kalinlik: 7.80}
+    kutle_g: 171
+    kaynak: {url: 'https://www.apple.com/iphone/compare/', tarih: '2026-11-18', tur: uretici}
+  iphone_15_pro_max:
+    tip: telefon
+    ad: iPhone 15 Pro Max
+    olcu: {genislik: 76.7, yukseklik: 159.9, kalinlik: 8.25}
+    kutle_g: 221
+    kaynak: {url: 'https://www.apple.com/iphone/compare/', tarih: '2026-11-18', tur: uretici}
+  iphone_16:
+    tip: telefon
+    ad: iPhone 16
+    olcu: {genislik: 71.6, yukseklik: 147.6, kalinlik: 7.80}
+    kutle_g: 170
+    kaynak: {url: 'https://www.apple.com/iphone/compare/', tarih: '2026-11-18', tur: uretici}
+  iphone_16_pro_max:
+    tip: telefon
+    ad: iPhone 16 Pro Max
+    olcu: {genislik: 77.6, yukseklik: 163.0, kalinlik: 8.25}
+    kutle_g: 227
+    kaynak: {url: 'https://www.apple.com/iphone/compare/', tarih: '2026-11-18', tur: uretici}
+  iphone_17:
+    tip: telefon
+    ad: iPhone 17
+    olcu: {genislik: 71.5, yukseklik: 149.6, kalinlik: 7.95}
+    kutle_g: 177
+    kaynak: {url: 'https://www.apple.com/iphone/compare/', tarih: '2026-11-18', tur: uretici}
+  iphone_17_pro_max:
+    tip: telefon
+    ad: iPhone 17 Pro Max
+    olcu: {genislik: 78.0, yukseklik: 163.4, kalinlik: 8.75}
+    kutle_g: 233
+    kaynak: {url: 'https://www.apple.com/iphone/compare/', tarih: '2026-11-18', tur: uretici}
+
+  # ------------------------------------------------------------------------------------------------ oyun kolları
+  dualsense:
+    tip: oyun_kolu
+    ad: PS5 DualSense
+    # Sony: "yaklaşık 160 × 66 × 106 mm (genişlik × yükseklik × derinlik, en büyük çıkıntı hariç), yaklaşık 280 g".
+    # playstation.com ürün sayfasında ölçü YOK; değer iki bağımsız ikincil kaynakta aynı → dogrulanmadi.
+    olcu: {genislik: 160.0, derinlik: 106.0, kalinlik: 66.0}
+    kutle_g: 280
+    dogrulanmadi: true
+    kaynak:
+      url: 'https://psu.com/news/dualsense-wireless-controller-specifications-guide'
+      ek_url: 'https://www.dimensions.com/element/playstation-5-dualsense-controller'
+      tarih: '2026-11-18'
+      tur: ikincil
+      not: Sony resmi sayfasında (playstation.com) ölçü/ağırlık bulunamadı.
+    # Parça yerleşimi bizim yaklaştırmamız (ölçülmedi): tutamak çapı, tetik ve çubuk konumları.
+    parca_varsayimi_dogrulanmadi: true
+    parca:
+      govde: {genislik: 112, derinlik: 58, kalinlik: 30}
+      tutamak: {yaricap: 19, uzunluk: 62, acik_x: 55, egim_derece: 28}
+      cubuk: {yaricap: 9, yukseklik: 9, aralik_x: 26, y: 6}
+      tetik: {genislik: 26, derinlik: 14, yukseklik: 16, aralik_x: 46}
+  xbox_series:
+    tip: oyun_kolu
+    ad: Xbox Wireless Controller (Series X|S)
+    # Microsoft resmi sayfasında ölçü bulunamadı (microsoft.com istek zaman aşımı); bayi kaydı 152.9 × 101.9 × 61 mm.
+    olcu: {genislik: 152.9, derinlik: 101.9, kalinlik: 61.0}
+    kutle_g: 280
+    dogrulanmadi: true
+    kaynak:
+      url: 'https://shop.ee.co.uk/add-to-plan/xbox-wireless-controller'
+      tarih: '2026-11-18'
+      tur: ikincil (bayi)
+      not: Kütle bayi kaydında 998 g yazıyor (ambalajlı olmalı); 280 g yaygın bayi değeri, pil dahil değil.
+    parca_varsayimi_dogrulanmadi: true
+    parca:
+      govde: {genislik: 104, derinlik: 54, kalinlik: 28}
+      tutamak: {yaricap: 18, uzunluk: 58, acik_x: 52, egim_derece: 30}
+      cubuk: {yaricap: 9, yukseklik: 9, aralik_x: 24, y: 4}
+      tetik: {genislik: 24, derinlik: 14, yukseklik: 15, aralik_x: 44}
+
+  # ------------------------------------------------------------------------------------------------ kulaklık
+  kulaklik:
+    tip: kulaklik
+    ad: Kafa bantlı kulaklık (parametrik)
+    # H = bant iç tepe noktasından kupa altına; Wic = iki yastık iç yüzü arası (baş genişliği boşluğu).
+    # Tek bir "standart kulaklık" ölçüsü yok; varyantlar aralığın uçlarını tarar.
+    parca:
+      bant_yaricap: 6           # bant kalınlığı/2 (dogrulanmadi)
+      kupa: {kalinlik: 44, genislik: 80, yukseklik: 100}   # elipsoid kupa+yastık zarfı (dogrulanmadi)
+    parca_varsayimi_dogrulanmadi: true
+    varyantlar:
+      kompakt:
+        H: 165
+        Wic: 130
+        kutle_g: 250
+        dogrulanmadi: true
+        kaynak:
+          not: 'H/Wic varsayım (kompakt kulaklık alt sınırı, ölçülmedi). 250 g: Sony WH-1000XM5 resmi "yaklaşık 250 g".'
+          url: 'https://www.sony-asia.com/electronics/headband-headphones/wh-1000xm5/specifications'
+          tarih: '2026-11-18'
+      airpods_max:
+        H: 177
+        Wic: 135
+        kutle_g: 386.2
+        dogrulanmadi: true
+        kaynak:
+          not: 'Apple resmi: yükseklik 187.3 mm, genişlik 168.6 mm, derinlik 83.4 mm, 386.2 g (AirPods Max 2, yastıklar dahil).
+            H = 187.3 − ~10 mm bant kalınlığı (türetildi); Wic türetildi → dogrulanmadi.'
+          url: 'https://www.apple.com/airpods-max/specs/'
+          tarih: '2026-11-18'
+      buyuk_uzatilmis:
+        H: 215
+        Wic: 150
+        kutle_g: 350
+        dogrulanmadi: true
+        kaynak:
+          not: 'Bant tam uzatılmış büyük kulaklık üst sınırı (2026-11-17 ayı standı v2 sanal testindeki 215 mm ile aynı); ölçülmedi.'
+
+# Kılıf payı (telefon): her yönde ölçü artışı ve kütle; üreticiye göre değişir → varsayım.
+kilif:
+  genislik_artis: 3.0
+  yukseklik_artis: 3.0
+  kalinlik_artis: 2.5
+  kutle_artis_g: 40
+  dogrulanmadi: true
+  not: 'Patron tarifi: +2–3 mm, +~40 g. Ölçülmüş bir kılıf değil.'
+
+# Şarj fişi (USB-C) kalıp gövdesi: telefonun alt kenarında bu prizma kadar boşluk gerekir.
+sarj_fisi:
+  genislik: 12.5
+  kalinlik: 7.0
+  uzunluk: 22.0
+  dogrulanmadi: true
+  not: 'Yaygın USB-C kablo fiş gövdesi zarfı (USB-IF fiş kalıbı üst sınırı değil, tipik ürün); ölçülmedi.'

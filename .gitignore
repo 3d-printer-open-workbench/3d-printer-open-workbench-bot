@@ -37,3 +37,5 @@ dist/
 config/orca/machine/
 config/orca/filament/
 config/orca/process/
+# HyperFrames video projects (coo/hf_reels.py)
+Video_Atölyesi/

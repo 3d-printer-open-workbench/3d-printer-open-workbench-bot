@@ -1,0 +1,9 @@
+# Usage test (coo/kullanim_testi.py) — install into the CAD environment:
+#   python3 -m venv ortamlar/.venv-cad && ortamlar/.venv-cad/bin/pip install -r requirements.txt -r requirements-usage-test.txt
+# Licenses: mujoco Apache-2.0 · coacd MIT · python-fcl BSD · rtree MIT · shapely BSD-3-Clause · fast-simplification MIT
+mujoco==4.0.1
+coacd==1.0.14
+python-fcl==0.7.0.11
+rtree==1.4.1
+shapely==2.2.0
+fast-simplification==0.2.0

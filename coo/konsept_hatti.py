@@ -1,4 +1,10 @@
-"""Konsept kütüphanesi → Flow ile konsept görsel (3:4 / 9:16) + Veo Reels.
+"""Konsept kütüphanesi → konsept görsel (3:4 / 9:16) + Veo Reels.
+
+Teknik poster 3:4 görseli iki yoldan biriyle üretilir:
+- İsteğe bağlı Canva: `config/konseptler/teknik-poster-canva.yaml` varsa (örnek: `teknik-poster-canva.example.yaml`)
+  kendi Canva ana şablonunuz kopyalanıp gerçek veriyle doldurulur (`canva` becerisi; yazılar gerçek fontla).
+- Varsayılan: Flow'da ham poster + `coo/teknik_poster.py` ile deterministik bilgi bandı.
+Diğer konseptler ve Reels videosu Flow'dan.
 
 Patron (2026-11-16): "Şu konseptte görsel ve reels oluştur" butonu. Seçilen ana konsept **Teknik Poster**: ürün
 fotoğrafı + ölçü/malzeme bilgi bandı (`coo/teknik_poster.py`, YZ'ye yazdırılmaz) → galeri ölçü görseli, Pinterest Pin
@@ -86,7 +92,54 @@ def kaynak_fotograf(sku: str, urunler_klasoru: Path | None = None) -> Path | Non
     return next((p for p in adaylar if p.exists()), None)
 
 
-def konsept_istemi(sku: str, konsept: dict[str, Any], urunler_klasoru: Path | None = None) -> str:
+CANVA_SABLON = KONSEPT_KLASORU / "teknik-poster-canva.yaml"
+
+
+def tr_buyuk(metin: str) -> str:
+    return metin.replace("i", "İ").replace("ı", "I").upper()
+
+
+def poster_fotografi(sku: str, urunler_klasoru: Path | None = None) -> Path | None:
+    """Canva posterinin fotoğrafı: numune > GEÇERLİ renk kararının Qwen stüdyo karesi (çok renk onaylıysa
+    model/cok_renk/render; krem fon > kapak) > studyo.png > kaynak_fotograf. Renkli ürün gri karede gösterilmez.
+    YZ kullanım sahnesi (kullanim-*) posterde kullanılmaz — poster ürünün kendisini gösterir."""
+    import yaml
+
+    from .renk_hatti import renkler_veriden
+
+    kok = (urunler_klasoru or URUNLER_KLASORU) / sku
+    try:
+        veri = yaml.safe_load((kok / "urun.yaml").read_text(encoding="utf-8")) or {}
+    except OSError:
+        veri = {}
+    klasorler = [kok / str(r["klasor"]) for r in renkler_veriden(veri) if r.get("klasor")]
+    adaylar = [*sorted(kok.glob("gorsel/numune-*"))]
+    for ad in ("krem-fon.png", "kapak-beyaz.png"):
+        adaylar += [k / "studyo-ic" / ad for k in klasorler] + sorted(kok.glob(f"gorsel/renkler/*/studyo-ic/{ad}"))
+    adaylar.append(kok / "gorsel" / "studyo.png")
+    return next((p for p in adaylar if p.exists()), None) or kaynak_fotograf(sku, urunler_klasoru)
+
+
+def canva_poster_adimlari(sku: str, foto: Path | None, cikti: Path, urunler_klasoru: Path | None = None) -> str:
+    """Teknik poster 3:4 görseli Canva ana şablonundan (isteğe bağlı). Yazılar gerçek veriden basılır."""
+    from .bilgi_verisi import bilgiler
+
+    try:
+        veri = bilgiler(sku, urunler_klasoru)
+    except OSError:  # urun.yaml yok → ajan DURUR (veri uydurmaz)
+        veri = {"ad": sku, "satirlar": []}
+    satirlar = "; ".join(f"{k} {ad} = {deg}" for k, ad, deg in veri["satirlar"]) or "(veri yok — DUR)"
+    return (
+        f"CANVA POSTER (3:4): ÖNCE `canva` becerisini uygula; şablon haritası `{CANVA_SABLON}`. Ana şablonu kopyala, "
+        "kopyada doldur (ana şablona dokunma).\n"
+        f"- Ürün fotoğrafı: `{foto}` (kare kırp, yükle, görsel kutusuna koy).\n"
+        f"- Ürün satırı: `{tr_buyuk(veri['ad'])}  ·  NO. 01`.\n"
+        f"- Bilgi hücreleri sırayla (BİREBİR, başka değer ekleme): {satirlar}. Kullanılmayan hücreleri kaldır.\n"
+        f"- PNG dışa aktar → `{cikti}`; Read ile aç, yazıları harf harf doğrula.\n"
+    )
+
+
+def konsept_istemi(sku: str, konsept: dict[str, Any], urunler_klasoru: Path | None = None, not_: str = "") -> str:
     kok = (urunler_klasoru or URUNLER_KLASORU) / sku
     foto = kaynak_fotograf(sku, urunler_klasoru)
     ad = konsept["ad"]
@@ -95,6 +148,7 @@ def konsept_istemi(sku: str, konsept: dict[str, Any], urunler_klasoru: Path | No
     video = konsept["video"] and "9:16" in oranlar
     refler = konsept.get("referanslar") or []
     bilgi = konsept.get("bilgi_katmani") == "teknik_poster"
+    canva = bilgi and CANVA_SABLON.exists()
     py = f"cd {PROGRAMLAR_KLASORU} && {PY_GORSEL} -m coo.teknik_poster"
     ref_satiri = (
         f"Stil referansları (ürün DEĞİL, yalnızca stil/düzen/palet): {', '.join(f'`{r}`' for r in refler)}. "
@@ -108,7 +162,11 @@ def konsept_istemi(sku: str, konsept: dict[str, Any], urunler_klasoru: Path | No
         + (" ve Reels videosu" if video else "") + " üret.\n"
         f"Ürün fotoğrafı (gerçek ürün, yüklenecek): `{foto}`\n"
         f"Ürün bilgisi: `{kok}/urun.yaml` (ad, renk). Konsept istemi: `{konsept['yol']}` (ön bilgiden sonraki gövde).\n"
-        + ref_satiri + "\n"
+        + ref_satiri
+        + (f"PATRON NOTU (öncelikli — bir önceki sonuca göre düzeltme; notun istediği değişikliği poster/video "
+           f"istemine ve Canva alanlarına işle, ürün sadakati ve yazı kuralları aynen geçerli): {not_.strip()}\n"
+           if not_.strip() else "")
+        + "\n"
         "KURALLAR:\n"
         "- Konsept istemini OLDUĞU GİBİ kullan; başına yalnızca şu satırı ekle: 'The uploaded photo shows a "
         "3D-printed product; keep the product in the photo exactly as it is (shape, face, details, color).'\n"
@@ -121,6 +179,10 @@ def konsept_istemi(sku: str, konsept: dict[str, Any], urunler_klasoru: Path | No
         "yakalayıp DOM'a ekleyecek ve dialog AÇMAYACAK şekilde yamala; '+' → 'Medya yükle'; find ile file-input'u "
         "bul; file_upload ile ürün fotoğrafını yükle. 'Kullanım hakları' onayı çıkarsa DUR → `KONSEPT_HATA haklar "
         "onayı gerekli`.\n"
+        + (canva_poster_adimlari(sku, poster_fotografi(sku, urunler_klasoru), hedef / f"{ad}-3x4.png", urunler_klasoru)
+           + f"4b) 9:16 başlangıç karesi: `{py} dikey {sku} {hedef}/{ad}-3x4.png --cikti {hedef}/{ad}-9x16.png` "
+           "(Flow'da 9:16 görsel ÜRETME).\n"
+           if canva else (
         "3) Görsel modunda EN YÜKSEK KALİTELİ görsel modelini seç (kredi harcayabilir). Her oran için ("
         + ", ".join(["3:4"] if bilgi else oranlar) + "): oranı seç, çıktı x4, yüklenen fotoğrafı isteme ekle, istemi gönder "
         "(9:16 için istemdeki '3:4' ifadesini '9:16' yap). %100 olana kadar bekle (en fazla ~5 dk).\n"
@@ -137,11 +199,14 @@ def konsept_istemi(sku: str, konsept: dict[str, Any], urunler_klasoru: Path | No
             f"`{py} dikey {sku} {hedef}/{ad}-3x4-ham.png --cikti {hedef}/{ad}-9x16.png`. 9:16 görseli Flow'da "
             "AYRICA ÜRETME; video başlangıç karesi bu dosyadır.\n" if bilgi else ""
         )
+           ))
         + (
             f"5) Video (rehber §2–§5): ayar çipi → Video → Kareler → 9:16 → model 'Veo 3.1 - Fast' (yoksa 'Omni 1.2 "
             f"Flash') → x1. 'Başlat' → 'Çerçeve resmi seçin' → 'Medya yükle' ile `{hedef}/{ad}-9x16.png` → 'İsteme ekle'; "
             "'Bitir' boş. İstem: '" + konsept["video_istemi"].replace("'", "’") + "' "
-            + (f"İndir (yeni sekmede, '720p Orijinal') → `{kok}/medya/{ad}-veo-ham.mp4`, sonra "
+            + (f"İndir (yeni sekmede, '720p Orijinal') → `{kok}/medya/konsept-{ad}-reels.mp4` (Canva posteri ölçü/"
+               "malzeme bilgisini zaten içeriyor; ek bant EKLEME, Flow'un kendi sesini koru). " if canva
+               else f"İndir (yeni sekmede, '720p Orijinal') → `{kok}/medya/{ad}-veo-ham.mp4`, sonra "
                f"`{py} reels {sku} {kok}/medya/{ad}-veo-ham.mp4` (ölçü/malzeme bandı + site) → "
                f"`{kok}/medya/konsept-{ad}-reels.mp4`. " if bilgi else f"İndir → `{kok}/medya/konsept-{ad}-reels.mp4`. ")
             + "ffmpeg ile 0/4/7.8 sn karelerini çıkar; üst yarıdaki "

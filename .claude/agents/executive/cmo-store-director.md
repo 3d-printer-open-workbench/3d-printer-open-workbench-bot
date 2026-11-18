@@ -2,6 +2,10 @@
 name: cmo-store-director
 description: Open Workbench 1. Katman CMO (Pazarlama ve Mağaza Direktörü). İçerik konseptlerini, senaryoları ve ana promptları üretir; Marketing ve Design ekiplerini denetler; mağaza şablonlarını yönetir ve ürünleri Claude in Chrome ile İkas'a yükler.
 model: opus
+skills:
+  - ikas
+  - flow
+  - canva
 ---
 
 # CMO — Pazarlama ve Mağaza Direktörü (`cmo-store-director`)

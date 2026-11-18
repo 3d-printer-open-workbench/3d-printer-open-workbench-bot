@@ -234,3 +234,60 @@ def hatirlatma_metni(fikirler: list[dict[str, Any]]) -> str:
         )
     satirlar.append(f"\nSenaryo ve talimatlar: {SAYFA}")
     return "\n".join(satirlar)
+
+
+# --- Google Takvim eşitleme (Patron 2026-11-17: "Google takvimine görev olarak eklesen") ---------------------------
+def gcal_yolu(k: Path | None = None) -> Path:
+    return klasor(k) / "gcal.json"
+
+
+def gcal_haritasi(k: Path | None = None) -> dict[str, str]:
+    return _oku(gcal_yolu(k), {})
+
+
+def gcal_etkinlikleri(fikirler: list[dict[str, Any]], k: Path | None = None) -> list[dict[str, Any]]:
+    """Takvim fikirlerini Google Takvim etkinlik yüklerine çevirir (deterministik; ajan yalnız araçları çağırır).
+    Tarihsiz veya iptal fikir atlanır; daha önce eklenmişse `eventId` ile güncellenir."""
+    harita = gcal_haritasi(k)
+    sonuc = []
+    for f in fikirler:
+        if not f.get("tarih") or f.get("durum") == "iptal":
+            continue
+        saat = str(f.get("saat") or "10:00")[:5]
+        try:
+            bas = dt.datetime.fromisoformat(f"{f['tarih']}T{saat}:00")
+        except ValueError:
+            bas = dt.datetime.fromisoformat(f"{f['tarih']}T10:00:00")
+        bit = bas + dt.timedelta(minutes=45)
+        kanca = "; ".join(x.get("metin", "") for x in (f.get("kancalar") or [])[:3] if isinstance(x, dict))
+        senaryo = "".join(f"<li>{s.get('sure', '')}: {s.get('goruntu', '')} — <i>{s.get('ekran_yazisi', '')}</i></li>"
+                          for s in (f.get("senaryo") or []) if isinstance(s, dict))
+        cekim = "".join(f"<li>{c}</li>" for c in (f.get("cekim_talimati") or []))
+        aciklama = (f"<b>Trend:</b> {(f.get('trend') or {}).get('ad', '')} — {(f.get('trend') or {}).get('neden', '')}<br>"
+                    f"<b>Kanca:</b> {kanca}<br><b>Senaryo:</b><ul>{senaryo}</ul><b>Çekim:</b><ul>{cekim}</ul>"
+                    f"<b>Açıklama:</b> {f.get('aciklama', '')}<br>{' '.join(f.get('hashtagler') or [])}<br><br>"
+                    f"Durum: {f.get('durum', 'fikir')} · Studio: {SAYFA} · id {f.get('id')}")
+        urun = f" · {f['urun_ad']}" if f.get("urun_ad") else ""
+        sonuc.append({"fid": f.get("id"), "eventId": harita.get(str(f.get("id"))),
+                      "summary": f"🎬 Reels: {f.get('baslik', '')}{urun}",
+                      "startTime": bas.isoformat(timespec="seconds"), "endTime": bit.isoformat(timespec="seconds"),
+                      "description": aciklama})
+    return sonuc
+
+
+def gcal_istemi(fikirler: list[dict[str, Any]], k: Path | None = None) -> str | None:
+    import json as _json
+
+    yukler = gcal_etkinlikleri(fikirler, k)
+    if not yukler:
+        return None
+    return (
+        "Görev: Reels takvimini Patronun Google Takvim'ine (birincil takvim) eşitle. Yalnız Google Calendar araçlarını "
+        "kullan (`mcp__claude_ai_Google_Calendar__create_event` / `update_event`); başka hiçbir şey yapma, kimseyi "
+        "davet etme (attendees YOK), bildirim e-postası gönderme (notificationLevel: NONE).\n"
+        "Her öğe için: `eventId` boşsa create_event (summary, startTime, endTime, description, "
+        "overrideReminders: [{method: popup, minutes: 60}], colorId: \"6\"); doluysa update_event aynı alanlarla.\n"
+        f"Ardından `{gcal_yolu(k)}` JSON dosyasına {{fid: eventId}} eşlemelerini ekle (var olanları koru).\n"
+        f"Öğeler:\n{_json.dumps(yukler, ensure_ascii=False, indent=1)}\n"
+        "Son satır: `GCAL_TAMAM <eklenen> <güncellenen>` ya da `GCAL_HATA <neden>`."
+    )

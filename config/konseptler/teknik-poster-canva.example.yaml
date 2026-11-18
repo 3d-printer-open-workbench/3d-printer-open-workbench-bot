@@ -1,0 +1,20 @@
+# OPTIONAL — technical poster from your own Canva master template (used by the `canva` skill).
+# Copy to `teknik-poster-canva.yaml` and fill in the ids of YOUR design; while that file does not exist the bot
+# keeps the default path (Flow raw poster + deterministic info band from coo/teknik_poster.py).
+# Find the ids with the Canva connector: read-design on your master design → page id and element ids.
+# Never edit the master design: every product gets a copy (copy-design) and only the copy is filled.
+ana_tasarim: <MASTER_DESIGN_ID>        # design with placeholders
+sayfa: <PAGE_ID>                       # stays the same in copies
+boyut: [1080, 1440]                    # 3:4
+gorsel:                                # product photo (square crop; remove + add_image into the same box)
+  id: <IMAGE_ELEMENT_ID>
+  kutu: {top: 124, left: 220, width: 640, height: 640}
+urun_satiri: <TITLE_TEXT_ELEMENT_ID>   # "{PRODUCT NAME}  ·  NO. {NO}"
+hucreler:                              # info grid; remove all elements of unused cells
+  - {cizgi: <LINE_ID_1>, nokta: <DOT_ID_1>, etiket: <LABEL_ID_1>, deger: <VALUE_ID_1>}
+  - {cizgi: <LINE_ID_2>, nokta: <DOT_ID_2>, etiket: <LABEL_ID_2>, deger: <VALUE_ID_2>}
+  - {cizgi: <LINE_ID_3>, nokta: <DOT_ID_3>, etiket: <LABEL_ID_3>, deger: <VALUE_ID_3>}
+  - {cizgi: <LINE_ID_4>, nokta: <DOT_ID_4>, etiket: <LABEL_ID_4>, deger: <VALUE_ID_4>}
+  - {cizgi: <LINE_ID_5>, nokta: <DOT_ID_5>, etiket: <LABEL_ID_5>, deger: <VALUE_ID_5>}
+  - {cizgi: <LINE_ID_6>, nokta: <DOT_ID_6>, etiket: <LABEL_ID_6>, deger: <VALUE_ID_6>}
+renkler: {A: "#C8553D", P: "#2E86AB"}  # dot color by code letter: A = dimensions, P = material/process
