@@ -18,7 +18,7 @@ import struct
 import subprocess
 import time
 import urllib.request
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 

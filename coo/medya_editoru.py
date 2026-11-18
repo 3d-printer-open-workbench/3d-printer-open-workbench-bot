@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFont
 
 from .ayar import MAGAZA_ADI, URUNLER_KLASORU
 

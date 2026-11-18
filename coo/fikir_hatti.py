@@ -23,7 +23,7 @@ from typing import Any
 
 import yaml
 
-from .ayar import CALISMA_ALANI, COO_KLASORU, PROGRAMLAR_KLASORU, PY_AI3D, PY_CAD, URUNLER_KLASORU
+from .ayar import COO_KLASORU, PROGRAMLAR_KLASORU, PY_AI3D, PY_CAD, URUNLER_KLASORU
 
 AI3D_PYTHON = PY_AI3D
 BLENDER_BETIK = COO_KLASORU / "gorsel" / "blender_ciz.py"

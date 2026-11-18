@@ -11,9 +11,8 @@ import json
 import math
 import shutil
 import struct
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import yaml
 

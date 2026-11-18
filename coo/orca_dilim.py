@@ -19,7 +19,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from .ayar import CALISMA_ALANI, COO_KLASORU, CONFIG_KLASORU, PY_AI3D, URUNLER_KLASORU
+from .ayar import COO_KLASORU, CONFIG_KLASORU, PY_AI3D, URUNLER_KLASORU
 
 ORCA_KLASOR = CONFIG_KLASORU / "orca"
 KAYNAK = ORCA_KLASOR / "kaynak"

@@ -11,7 +11,6 @@ from PIL import Image
 
 from coo import __main__ as coo_main
 from coo import b2c_arge
-from coo.ayar import CALISMA_ALANI
 from coo.kalite_kapisi import kalite_kontrol_et
 
 

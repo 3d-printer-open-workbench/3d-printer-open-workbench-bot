@@ -18,7 +18,7 @@ from typing import Any
 import yaml
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
-from .ayar import B2C_ONERILER_KLASORU, CALISMA_ALANI, KONSEPT_ARGE_KLASORU, URUNLER_KLASORU, VERI_KLASORU
+from .ayar import B2C_ONERILER_KLASORU, KONSEPT_ARGE_KLASORU, URUNLER_KLASORU, VERI_KLASORU
 
 FONT_ADAYLARI = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",

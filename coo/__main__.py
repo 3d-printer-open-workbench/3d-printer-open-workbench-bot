@@ -115,7 +115,7 @@ from .renk_hatti import (
     urun_renklerini_kaydet,
     urun_renkleri,
 )
-from .urun_menusu import aktif_urunler, sonraki_butonlari as urun_sonraki_butonlari, urun_karti, urun_listesi_butonlari
+from .urun_menusu import sonraki_butonlari as urun_sonraki_butonlari, urun_karti, urun_listesi_butonlari
 from .icerik_hatti import (
     icerik_ozeti,
     kullanim_istemi,
@@ -156,7 +156,6 @@ from .orca_dilim import kategoriler as baski_kategorileri
 from .urun_ozet import (
     portfoy_ozet_metni_ve_butonlari,
     tek_urun_ozet_metni,
-    urun_asama_analiz_et,
 )
 from .yazici import (
     gcode_yukle,
@@ -3540,7 +3539,7 @@ async def baski_bitti_sorusu_gonder(
     metin = (
         (f"⚠️ *Baskı yarıda kaldı* (`{bitis_durumu}`, %{ref.ilerleme_yuzde:.0f})\n"
          f"_Fire seçilirse yalnız harcanan ~{fire_grami(ref.tahmini_gram, ref.ilerleme_yuzde)} g düşülür._\n\n"
-         if yarim else f"🏁 *Baskı Tamamlandı!*\n\n")
+         if yarim else "🏁 *Baskı Tamamlandı!*\n\n")
         + ""
         f"• *G-Code Dosyası:* `{ref.ham_dosya_adi}`\n"
         f"• *Eşleşen Ürün:* *{ref.urun_adi}* (`{ref.eslesen_sku or 'genel-baski'}`)\n"
@@ -3669,7 +3668,7 @@ async def _alim_ozeti_gonder(tg: TelegramIstemci, chat_id: int, klasor: Path, ya
         return
     filamentler, malzemeler = await ERP.filamentler(), await ERP.malzemeler()
     try:
-        onceki = await ERP._get(f"/api/alimlar?limit=500")
+        onceki = await ERP._get("/api/alimlar?limit=500")
     except Exception:  # noqa: BLE001
         onceki = []
     engel, uyari = alim_dogrula(veri, filamentler, malzemeler, onceki)

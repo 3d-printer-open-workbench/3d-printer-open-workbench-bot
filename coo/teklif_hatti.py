@@ -23,7 +23,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from .ayar import CALISMA_ALANI, MAGAZA_ADI, MAGAZA_ALAN_ADI, MUHASEBE_KLASORU, PROGRAMLAR_KLASORU
+from .ayar import MAGAZA_ADI, MAGAZA_ALAN_ADI, MUHASEBE_KLASORU, PROGRAMLAR_KLASORU
 
 TEKLIF_KLASORU = MUHASEBE_KLASORU / "Teklifler"
 FIRE_YUZDE = 5.0

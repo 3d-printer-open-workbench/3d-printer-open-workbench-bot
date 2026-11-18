@@ -50,7 +50,7 @@ def urun_kaynaklari(sku: str, urunler: Path | None = None) -> list[Path]:
 def _ortak_kurallar(proje: Path, cikti: Path) -> str:
     return (
         "ÖNCE Skill aracıyla `hyperframes` becerisini, sonra `hyperframes-cli` becerisini yükle ve kurallarına uy "
-        f"(CLI: `node ~/.claude/skills/hyperframes/scripts/plugin-cli.mjs <komut>`, proje klasöründe çalıştır).\n"
+        "(CLI: `node ~/.claude/skills/hyperframes/scripts/plugin-cli.mjs <komut>`, proje klasöründe çalıştır).\n"
         + (f"Örnek proje (yapı, sahne düzeni, ses klasörü): `{ORNEK_PROJE}` — oku, kopyalama değil uyarlama yap.\n"
            if ORNEK_PROJE.exists() else "")
         + f"Proje klasörü: `{proje}` (`init {proje} --skip-skills` ile oluştur; varlıkları `assets/` altına kopyala).\n"
